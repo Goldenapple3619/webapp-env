@@ -1,0 +1,23 @@
+{
+    "scripts": [
+        "script/main.js",
+        "script/scriptSetup.js"
+    ],
+    "images": [
+
+    ],
+    "styles": [
+        "/style/common.css",
+
+        "style/main.css"
+    ],
+    "UIs": [
+        "UI/main.html",
+        "UI/menu.html",
+        "UI/playlist.html",
+        "UI/song.html"
+    ],
+    "JSONs": [
+
+    ]
+}

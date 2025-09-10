@@ -1,0 +1,22 @@
+{
+    "scripts": [
+        "script/main.js",
+        "script/scriptSetup.js"
+    ],
+    "images": [
+        "/assets/images/default_folder.png",
+        "/assets/images/default_file.png"
+    ],
+    "styles": [
+        "/style/common.css",
+
+        "style/main.css"
+    ],
+    "UIs": [
+        "UI/main.html",
+        "UI/item.html"
+    ],
+    "JSONs": [
+
+    ]
+}

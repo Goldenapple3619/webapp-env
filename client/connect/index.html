@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+        <meta charset="UTF-8">
+
+        <script type="text/javascript">
+            document.onloaded = () => {
+                document.app.build("UI/main.html");
+                document.app.setTitle("Connect");
+
+                var connectHandler = document.__connectScript.new();
+
+                connectHandler.setForm(document.getElementById("user"), document.getElementById("password"), document.getElementById("ip"), document.getElementById("submitButtonConnect"), document.getElementById("errorBoxConnect"));
+            };
+        </script>
+
+        <script type="text/javascript" src="/lib/lrender.js"></script>
+        <script type="text/javascript" src="/script/init.js"></script>
+    </head>
+    <body>
+    </body>
+</html>

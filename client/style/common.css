@@ -1,0 +1,142 @@
+:root {
+    --bg-main: #dcd4f0;
+    --bg-secondary: #E0C6E7;
+    --bg-terciary: #C1B1E6;
+    --bg-quaduary: #BBA1F0;
+    --color-main: #E3EAF1;
+
+    --border-secondary: #B397ED;
+    --border-terciary: #AE99D9;
+    --border-quaduary: #AE99D9;
+
+    --separator: #B99ADC;
+}
+
+ /* Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+    width: 12px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    border: none;
+    background-color: #ae99d9d6;
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+
+    border: 3px solid transparent;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: #9784bd;
+}
+
+.flex-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.flex-row {
+    display: flex;
+    flex-direction: row;
+}
+
+.al-start {
+    align-items: start;
+}
+
+.al-end {
+    align-items: end;
+}
+
+.al-center {
+    align-items: center;
+}
+
+.jus-between {
+    justify-content: space-between;
+}
+
+.jus-center {
+    justify-content: center;
+}
+
+.jus-start {
+    justify-content: start;
+}
+
+.jus-end {
+    justify-content: end;
+}
+
+.bg-main {
+    background-color: var(--bg-main);
+}
+
+.bg-secondary {
+    background-color: var(--bg-secondary);
+}
+
+.color-main {
+    color: var(--color-main);
+}
+
+.bg-invert {
+    background-color: var(--color-main);
+}
+
+.bg-terciary {
+    background-color: var(--bg-terciary);
+}
+
+.bg-quaduary {
+    background-color: var(--bg-quaduary);
+}
+
+.border-secondary {
+    border: double 5px var(--border-secondary);
+}
+
+.border-terciary {
+    border: solid 3px var(--border-terciary);
+}
+
+.border-quaduary {
+    border: double 5px var(--border-quaduary);
+}
+
+.radius-smooth {
+    border-radius: 20px;
+}
+
+.radius-really-smooth {
+    border-radius: 25px;
+}
+
+.radius-round {
+    border-radius: 100px;
+}
+
+.separator {
+    border: double 2px var(--separator);
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.shadow-light {
+    box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 4px, rgba(0, 0, 0, 0.3) 0px 7px 13px -3px, rgba(0, 0, 0, 0.2) 0px -3px 0px inset;
+}
+
+.shadow-inner {
+    box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 4px 0px inset;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('/assets/fonts/Inter.ttf');
+}

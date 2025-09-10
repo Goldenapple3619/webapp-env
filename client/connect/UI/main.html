@@ -1,0 +1,26 @@
+<div class="bg-main flex-col jus-center al-center" style="width: 100%; height: 100%;">
+    <div class="flex-col jus-start al-center radius-smooth bg-terciary border-terciary" style="padding: 20px; min-height: 450px; min-width: 250px;">
+        <div class="" style="width: 100%;">
+            <h2 class="color-main">Connect</h2>
+            <hr class="separator" style="margin-bottom: 35px;">
+        </div>
+        <form class="flex-col al-center jus-start" style="gap: 20px;">
+            <div id="errorBoxConnect" class="radius-smooth" style="width: 100%; text-align: center; padding: 10px; display: none; margin-bottom: 15px; background-color: rgba(191, 30, 30, 0.114);"></div>
+            <field style="display: grid; gap: 4px; grid-template-columns: 1fr 2fr;">
+                <label for="ip" class="color-main" style="margin-top: auto; margin-bottom: auto;">IP</label>
+                <input name="ip" id="ip" class="radius-smooth color-main border-quaduary bg-quaduary" style="height: 35px; padding: 5px;" type="text" />
+            </field>
+
+            <field style="display: grid; gap: 4px; grid-template-columns: 1fr 2fr;">
+                <label for="user" class="color-main" style="margin-top: auto; margin-bottom: auto;">User</label>
+                <input name="user" id="user" class="radius-round color-main border-quaduary bg-quaduary" style="height: 35px; padding: 5px;" type="text" />
+            </field>
+
+            <field style="display: grid; gap: 4px; grid-template-columns: 1fr 2fr;">
+                <label for="password" class="color-main" style="margin-top: auto; margin-bottom: auto;">Password</label>
+                <input name="password" id="password" class="radius-round color-main border-quaduary bg-quaduary" style="height: 35px; padding: 5px;" type="password" />
+            </field>
+        </form>
+        <button class="bg-invert border-quaduary radius-smooth" id="submitButtonConnect" style="margin-top: auto; cursor: pointer; width: 100%; height: 34px;">Connect</button>
+    </div>
+</div>

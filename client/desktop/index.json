@@ -1,0 +1,36 @@
+{
+    "scripts": [
+        "/lib/lde.js",
+        "script/main.js",
+
+        "/apps/musicPlayer/script/main.js",
+        "/apps/musicPlayer/script/scriptSetup.js",
+
+        "/apps/explorer/script/main.js",
+        "/apps/explorer/script/scriptSetup.js"
+    ],
+    "images": [
+
+    ],
+    "styles": [
+        "/style/common.css",
+        "/style/window.css",
+
+        "/apps/musicPlayer/style/main.css"
+    ],
+    "UIs": [
+        "UI/main.html",
+        "UI/taskbar.html",
+
+        "/apps/musicPlayer/UI/main.html",
+        "/apps/musicPlayer/UI/menu.html",
+        "/apps/musicPlayer/UI/playlist.html",
+        "/apps/musicPlayer/UI/song.html",
+
+        "/apps/explorer/UI/main.html",
+        "/apps/explorer/UI/item.html"
+    ],
+    "JSONs": [
+
+    ]
+}

@@ -1,0 +1,131 @@
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap');
+
+:root {
+    --win-border: solid 4px #FC82B8;
+    --win-radius: 2px;
+    --win-shadow: 0;
+
+    --win-header-size: 25px;
+    --win-header-background: #FC9DC9;
+    --win-header-border: 0;
+    --win-header-shadow: 0;
+    --win-header-color: #fff;
+
+    --win-body-background: #FAE3ED;
+
+    --win-header-font-family:  "Pixelify Sans", sans-serif;
+    --win-header-font-size: 16px;
+}
+
+.window {
+    overflow: hidden;
+
+    border-radius: var(--win-radius);
+    border: var(--win-border);
+    box-shadow: var(--win-shadow);
+}
+
+.win-header {
+    display: flex;
+
+    flex-direction: row;
+    align-items: center;
+    justify-content: start;
+
+    font-family: var(--win-header-font-family);
+    font-size: var(--win-header-font-size);
+    color: var(--win-header-color);
+    height: var(--win-header-size);
+    background: var(--win-header-background);
+    border: var(--win-header-border);
+    box-shadow: var(--win-header-shadow);
+
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+}
+
+.win-body {
+    height: calc(100% - var(--win-header-size));
+    background: var(--win-body-background);
+}
+
+.win-buttons {
+    height: var(--win-header-size);
+    gap: 1px;
+
+    margin-right: 5px;
+}
+
+.win-buttons, .win-buttons * {
+    font-size: calc(var(--win-header-size) - 5px);
+
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+}
+
+.win-buttons * {
+    width: calc(var(--win-header-size) - 4px);
+    height: calc(var(--win-header-size) - 4px);
+
+    background-color: #FFFAFE;
+
+    appearance: none;
+    box-shadow: none;
+
+    line-height: 1.5;
+
+    text-align: center;
+
+    vertical-align: top;
+    white-space: nowrap;
+
+    outline: 0;
+    border: 0;
+
+    border-radius: 1px;
+}
+
+.win-buttons *:last-child {
+    margin-left: 2px;
+}
+
+.win-buttons *:hover {
+    background-color: #f0eaf0;
+}
+
+.win-buttons *:active {
+    background-color: #e5d8e3;
+}
+
+/* .win-buttons *:first-child:hover {
+    color: rgb(0, 186, 0);
+    background-color: rgba(240, 255, 240, 0.929);
+}
+
+.win-buttons *:nth-child(2):hover {
+    color: rgb(183, 186, 0);
+    background-color: rgba(254, 255, 240, 0.929);
+}
+
+.win-buttons *:last-child:hover {
+    color: rgb(186, 0, 0);
+    background-color: rgba(255, 240, 240, 0.929);
+}
+
+.win-buttons *:first-child:active {
+    color: rgb(0, 233, 0);
+    background-color: rgba(240, 255, 240, 0.756);
+}
+
+.win-buttons *:nth-child(2):active {
+    color: rgb(233, 237, 1);
+    background-color: rgba(253, 255, 222, 0.79);
+}
+
+.win-buttons *:last-child:active {
+    color: rgb(230, 0, 0);
+    background-color: rgba(255, 240, 240, 0.716);
+} */
