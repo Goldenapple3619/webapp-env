@@ -1,183 +1,26 @@
 from src import *
 
 from websockets.sync.server import serve
-from genericpath import isfile, isdir, exists
+
 from sys import exit
-from os import environ, listdir, remove, mkdir, scandir
 from traceback import format_exc
-from uuid import uuid4
-from os.path import abspath, getsize, getctime, getmtime
+
+from genericpath import isdir
+from os import environ
+from os.path import abspath
 from os.path import join as join_path
+
+from uuid import uuid4
 from base64 import b64decode
-from shutil import rmtree
+
+from xml.etree import ElementTree
+from importlib.util import spec_from_file_location, module_from_spec
 
 import sys
 
-db = DataBase(environ["DB_HOST"], environ["POSTGRES_DB"], environ["POSTGRES_USER"], environ["POSTGRES_PASSWORD"])
 
-class ExplorerApp(App):
-    def __init__(self, appdata_path: str):
-        super().__init__(appdata_path)
-
-        self.abs_client_root = abspath(join_path(appdata_path, "..", "root")).replace('\\', '/')
-        self.path = self.join_path("Explorer")
-
-    def write(self, update_type, **kwargs):
-        if (not "path" in kwargs):
-            return (False)
-
-        if (kwargs["path"].replace('\\', '/').startswith('/')):
-            kwargs["path"] = "." + kwargs["path"]
-
-        path = abspath(join_path(self.abs_client_root, kwargs["path"].replace('\\', '/'))).replace('\\', '/')
-
-        if (not path.startswith(self.abs_client_root) or not exists(path)):
-            return (False)
-
-        if (update_type == "mkdir"):
-            if (isdir(path)):
-                return (True)
-            mkdir(path)
-            return (True)
-
-        if (update_type == "mkfile"):
-            open(path, 'wb+').close()
-            return (True)
-
-        if (update_type == "rmdir"):
-            if (not isdir(path)):
-                return (False)
-            rmtree(path, True)
-            return (True)
-
-        if (update_type == "rmfile"):
-            if (not isfile(path)):
-                return (False)
-            remove(path)
-            return (True)
-
-        return (False)
-
-    def fetch(self, fetch_type, **kwargs):
-        if (not "path" in kwargs):
-            return (False)
-
-        if (kwargs["path"].replace('\\', '/').startswith('/')):
-            kwargs["path"] = "." + kwargs["path"]
-
-        path = abspath(join_path(self.abs_client_root, kwargs["path"].replace('\\', '/'))).replace('\\', '/')
-
-        if (not path.startswith(self.abs_client_root) or not exists(path)):
-            return (False)
-
-        if (fetch_type == "listdir"):
-
-            if (not isdir(path)):
-                return (None)
-
-            return {"type": fetch_type, "fetched": path.replace(self.abs_client_root, ''), "content":
-                list(map(lambda x: {
-                    "name": x.name,
-                    "path": join_path(path, x.name).replace(self.abs_client_root, ''),
-                    "icon": None,
-                    "type": "folder" if x.is_dir() else "file",
-                    "size": 0 if x.is_dir() else x.stat().st_size,
-                    "creation_date": x.stat().st_ctime,
-                    "modification_date": x.stat().st_mtime
-                }, scandir(path)))
-            }
-
-        return (None)
-
-    def save(self):
-        return super().save()
-
-    def load(self):
-        return super().load()
-
-class MusicApp(App):
-    def __init__(self, appdata_path: str):
-        super().__init__(appdata_path)
-
-        self.path = self.join_path("musicApp")
-        self.abs_client_root = abspath(join_path(appdata_path, "..", "root")).replace('\\', '/')
-
-        self.playlists = {}
-
-    def write(self, update_type, **kwargs):
-        if (update_type == "playlists_create"):
-            if (not "name" in kwargs or kwargs["name"] in self.playlists):
-                return (False)
-            self.playlists[kwargs["name"]] = []
-            return (True)
-
-        if (update_type == "playlists_delete"):
-            if (not "name" in kwargs or kwargs["name"] not in self.playlists):
-                return (False)
-            if (isfile(self.join_path("playlists", kwargs["name"] + ".lst"))):
-                remove(self.join_path("playlists", kwargs["name"] + ".lst"))
-            del self.playlists[kwargs["name"]]
-            return (True)
-
-        if (update_type == "song_add"):
-            if (not "playlist" in kwargs or kwargs["playlist"] not in self.playlists):
-                return (False)
-            if (not "path" in kwargs or join_path(self.abs_client_root, kwargs["path"].replace('\\', '/').lstrip('/'))):
-                return (False)
-            self.playlists[kwargs["name"]].append({"endpoint": kwargs["path"].replace('\\', '/'), "cover": kwargs.get("cover", "default"), "name": kwargs.get("name", '.'.join(kwargs["path"].replace('\\', '/').split('/')[-1].split('.')[:-1]))})
-            return (True)
-
-        if (update_type == "song_delete"):
-            if (not "playlist" in kwargs or kwargs["playlist"] not in self.playlists):
-                return (False)
-            if (not "id" in kwargs or kwargs["id"].isnumeric() or int(kwargs["id"]) >= len(self.playlists[kwargs["playlist"]])):
-                return (False)
-            del kwargs["playlist"][int(kwargs["id"])]
-            return (True)
-
-        return (False)
-
-    def fetch(self, fetch_type, **kwargs):
-        if (fetch_type == "playlists"):
-            return {"type": fetch_type, "content": [{"name": item, "songs": self.playlists[item]} for item in self.playlists]}
-
-        return (None)
-
-    def save(self):
-        for item in self.playlists:
-            with open(self.join_path("playlists", item + '.lst'), 'w') as fp:
-                for song in sorted(self.playlists[item], key=lambda x: x["id"]):
-                    fp.write(f"{song['endpoint']} {song['cover']} {song['name']}\n")
-
-        return super().save()
-
-    def load(self):
-        self.playlists.clear()
-
-        for item in listdir(self.join_path("playlists")):
-            song_id = 0
-
-            self.playlists['.'.join(item.split('.')[:-1])] = []
-
-            with open(self.join_path("playlists", item), 'r') as fp:
-                for line in fp.readlines():
-                    line = line.strip()
-
-                    if (not line):
-                        continue
-
-                    music, cover, *name = tuple(filter(lambda x: x != "", line.replace('\t', '').split(' ')))
-
-                    self.playlists[item.split('.')[0]].append({"id": song_id, "endpoint": music, "name": ' '.join(name), "cover": cover})
-
-                    song_id += 1
-
-        return super().load()
-
-apps = {
-    "music": MusicApp,
-    "explorer": ExplorerApp
-}
+db: DataBase = DataBase(environ["DB_HOST"], environ["POSTGRES_DB"], environ["POSTGRES_USER"], environ["POSTGRES_PASSWORD"])
+apps: dict = {}
 
 def route_goodbye(server: Server, client: Client, message: MessageJSON):
     client.send_message(MessageJSON("goodbye", data={"message": "ok"}, code=0))
@@ -296,8 +139,45 @@ def route_write(server: Server, client: Client, message: MessageJSON):
 
     client.send_message(MessageJSON(f"write", data={"message": "write_done"}, code=0))
 
+def load_apps(config_file: str):
+    tree = ElementTree.parse(config_file)
+    root = tree.getroot()
+
+    if (root.tag != "applist"):
+        raise KeyError(f"invalid root tag {root.tag}, excepted 'applist'.")
+    
+    for item in root:
+        if (item.tag != "app"):
+            raise KeyError(f"all tag in applist should be <app>, got: {item.tag}.")
+        if (not item.text):
+            raise NameError("name of an app should'nt be empty.")
+        if (not item.attrib.get("className", '')):
+            raise NameError("className attribute shouldn't be empty.")
+        if (not item.attrib.get("src", '')):
+            raise NameError("src attribute shouldn't be empty.")
+        
+        if (item.text in apps):
+            raise KeyError(f"{item.text} already registered in apps, can't register it twice.")
+        
+        spec = spec_from_file_location(f"app-{hash_file(item.attrib.get("src"))}", item.attrib.get("src"))
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        if (not hasattr(mod, item.attrib.get("className"))):
+            raise KeyError(f"class {item.attrib.get("className")} is not in {item.attrib.get("src")}")
+
+        apps[item.text] = getattr(mod, item.attrib.get("className"))
+
+    print(apps)
+
 def main() -> int:
-    S = Server(lambda s: serve(s, "0.0.0.0", 80), close_message=MessageJSON("goodbye", data={"message": "connection_end"}, code=0))
+    S: Server = Server(lambda s: serve(s, "0.0.0.0", 80), close_message=MessageJSON("goodbye", data={"message": "connection_end"}, code=0))
+
+    try:
+        load_apps("apps.xml")
+    except Exception as e:
+        print(e)
+        return (1)
 
     S.add_route("connect", route_connect)
     S.add_route("disconnect", route_disconnect)

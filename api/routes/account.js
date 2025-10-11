@@ -80,6 +80,11 @@ function getFiles(req, res) {
 }
 
 function setToken(req, res) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
     res.cookie('authorization', req.query.token, {path: "/", httpOnly: true, maxAge: 271568425, sameSite: "None", secure: true, signed: false});
     res.redirect(301, req.query.redirect);
 }

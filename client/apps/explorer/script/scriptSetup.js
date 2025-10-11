@@ -70,6 +70,8 @@ if (!document.setupApp.explorer) {
                 if (standalone)
                     setHashChanging(sessionId);
                 explorer.setCallbackOpen((x) => {openItem(x, sessionId)});
+
+                document.wsscon.send(JSON.stringify({action: "fetch_app", data: {app_session: sessionId, fetch_type: "listdir", query: {path: explorer.getPath()}}}));
             }, (data) => {
                 console.log(`explorer app error ${data}.`);
             }, (data) => {

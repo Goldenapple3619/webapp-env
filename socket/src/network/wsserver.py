@@ -166,10 +166,6 @@ class Server(object):
         self.close()
 
     def close(self):
-        for item in self.started_apps_sessions:
-            item.close()
-        self.started_apps_sessions.clear()
-
         for item in tuple(self.clients.values()):
             if (self.close_message):
                 item.send_message(self.close_message)

@@ -18,6 +18,7 @@ RUN echo "*               soft    nofile          8192" >> /etc/security/limits.
 RUN echo "*               hard    nofile          8192" >> /etc/security/limits.conf
 
 COPY ./apache2.conf /etc/apache2/apache2.conf
+RUN rm -f ./apache2.conf
 
 STOPSIGNAL SIGWINCH
 

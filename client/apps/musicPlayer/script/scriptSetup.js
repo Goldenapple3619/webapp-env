@@ -63,6 +63,8 @@ if (!document.setupApp.musicPlayer) {
                 document.wsscon.send(JSON.stringify({action: "fetch_app", data: {app_session: sessionId, fetch_type: "playlists"}}));
             }, (sessionId) => {
                 onConnect(sessionId);
+
+                document.wsscon.send(JSON.stringify({action: "fetch_app", data: {app_session: sessionId, fetch_type: "playlists"}}));
             }, (data) => {
                 console.log(`music app error ${data}.`);
             }, (data) => {

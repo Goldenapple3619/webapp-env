@@ -4,6 +4,7 @@ document.__explorerScript = (() => {
         var itemPool;
         var pathDom;
         var openCallback;
+        var actualPath = "/";
 
         var items = [];
 
@@ -47,6 +48,7 @@ document.__explorerScript = (() => {
         }
 
         function setPath(path) {
+            actualPath = path;
             if (pathDom)
                 pathDom.innerText = path;
         }
@@ -74,6 +76,9 @@ document.__explorerScript = (() => {
             addItem: addItem,
             setPath: setPath,
             clearItem: clearItem,
+            getPath: function () {
+                return (actualPath);
+            },
             nonStandaloneDestroy: nonStandaloneDestroy
         });
     }
