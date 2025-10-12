@@ -43,3 +43,4 @@
 ## Refactor:
     - Remake the CSS to work on a "theme" system
     - Unify CSS make it look good
+    - App fullscreen mode on desktop different from standalone app mode 
