@@ -1,9 +1,9 @@
 
 ## Features Addition:
     - Desktop Environnement:
-        - Basic Taskbar
+        - ✅ Basic Taskbar
         - Application menu
-        - Desktop mouse drag thingy
+        - ✅ Desktop mouse drag thingy
         - Desktop app shortcut
         - Disconnect menu
 

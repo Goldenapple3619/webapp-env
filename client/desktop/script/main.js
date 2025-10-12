@@ -1,6 +1,7 @@
 if (!document.__desktopScript) {
 document.__desktopScript = (() => {
     function init() {
+        var desktopHandler = __desktop.new();
         var windows = {};
         var lastId = 0;
         var parentWindow = null;
@@ -76,12 +77,21 @@ document.__desktopScript = (() => {
             parentWindow = dom;
         }
 
+        function setSelectionCanva(dom, parent) {
+            if (!dom)
+                return;
+            if (!parent)
+                return;
+            desktopHandler.setSelectionRect(dom, parent);
+        }
+
         return ({
             createWindow: createWindow,
             getWinBody: getWinBody,
             openMusicApp: openMusicApp,
             openExplorerApp: openExplorerApp,
-            setDrawWindowDom: setDrawWindowDom
+            setDrawWindowDom: setDrawWindowDom,
+            setSelectionCanva: setSelectionCanva
         });
     }
 

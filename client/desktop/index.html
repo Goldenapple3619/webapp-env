@@ -17,6 +17,7 @@
                 var desktopTaskbar = document.app.build("UI/taskbar.html", desktopEnv)
                 var desktopHandler = document.__desktopScript.new();
 
+                desktopHandler.setSelectionCanva(document.getElementById("selectionRect"), document.body.querySelector(".wm-desktop-dom"));
                 desktopHandler.setDrawWindowDom(document.body.querySelector(".wm-desktop-dom"));
                 desktopHandler.openMusicApp();
                 desktopHandler.openExplorerApp();

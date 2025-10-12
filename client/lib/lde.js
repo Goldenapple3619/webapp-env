@@ -139,6 +139,7 @@ var __window = (() => {
 
         header.addEventListener("mousedown", eventClick, true);
         win.addEventListener("mousedown", (event) => {
+            event.stopPropagation();
             if (`${maxZ}` !== win.style.zIndex) {
                 maxZ += 1;
 
@@ -158,6 +159,61 @@ var __window = (() => {
             getBody: function () {
                 return (body);
             }
+        });
+    }
+
+    return ({
+        new: init
+    });
+})();
+
+var __desktop = (() => {
+    function init()
+    {
+        var selectionRectPos = {
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0
+        };
+        var selectionRect = null;
+
+        function moveSelectionRect() {
+            const left = Math.min(selectionRectPos.left, selectionRectPos.width);
+            const width = Math.max(selectionRectPos.left, selectionRectPos.width);
+            const top = Math.min(selectionRectPos.top, selectionRectPos.height);
+            const height = Math.max(selectionRectPos.top, selectionRectPos.height);
+
+            selectionRect.style.left = left + 'px';
+            selectionRect.style.top = top + 'px';
+            selectionRect.style.width = width - left + 'px';
+            selectionRect.style.height = height - top + 'px';
+        }
+
+        function setSelectionRect(div, eventApplyOn = document) {
+            selectionRect = div;
+
+            eventApplyOn.addEventListener("mousedown", function(e) {
+                div.style.display = "block";
+
+                selectionRectPos.left = e.clientX;
+                selectionRectPos.top = e.clientY;
+
+                moveSelectionRect();
+            });
+            eventApplyOn.addEventListener("mousemove", function(e) {
+                selectionRectPos.width = e.clientX;
+                selectionRectPos.height = e.clientY;
+                
+                moveSelectionRect();
+            });
+            eventApplyOn.addEventListener("mouseup", function(e) {
+                div.style.display = "none"
+            });
+        }
+
+        return ({
+            setSelectionRect: setSelectionRect
         });
     }
 
