@@ -1,3 +1,4 @@
+# RoadMap
 
 ## Features Addition:
     - Desktop Environnement:
@@ -29,3 +30,16 @@
 
         - Music
             - Create playlist
+
+## Fixes:
+    - App mouse draging ugly selection on HTML Doms
+    - Responsiveness of elements
+    - JavaScript page redirect not working on mobile (chrome web driver different standard on phone ??)
+
+## Architectural changes:
+    - Lazy loading of application UIs when not directly loaded
+    - Latency evaluation from the API to order websockets
+
+## Refactor:
+    - Remake the CSS to work on a "theme" system
+    - Unify CSS make it look good
