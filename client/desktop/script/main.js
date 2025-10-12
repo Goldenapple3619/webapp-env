@@ -2,9 +2,15 @@ if (!document.__desktopScript) {
 document.__desktopScript = (() => {
     function init() {
         var desktopHandler = __desktop.new();
+
         var windows = {};
         var lastId = 0;
+
         var parentWindow = null;
+        var startMenuDom = null;
+        var startMenuButton = null;
+        
+        var startMenuState = false;
 
         function createWindow(title, sizes, onclose) {
             let actualId = lastId;
@@ -85,13 +91,37 @@ document.__desktopScript = (() => {
             desktopHandler.setSelectionRect(dom, parent);
         }
 
+        function setStartMenu(startMenu, button) {
+            if (!startMenu)
+                return;
+            if (!button)
+                return;
+
+            startMenuDom = startMenu;
+            startMenuButton = button;
+
+            startMenuDom.style.display = "none";
+            startMenuState = false;
+
+            startMenuButton.addEventListener("click", () => {
+                if (startMenuState === false) {
+                    startMenuDom.style.display = "block";
+                    startMenuState = true;
+                } else {
+                    startMenuDom.style.display = "none";
+                    startMenuState = false;
+                }
+            });
+        }
+
         return ({
             createWindow: createWindow,
             getWinBody: getWinBody,
             openMusicApp: openMusicApp,
             openExplorerApp: openExplorerApp,
             setDrawWindowDom: setDrawWindowDom,
-            setSelectionCanva: setSelectionCanva
+            setSelectionCanva: setSelectionCanva,
+            setStartMenu: setStartMenu
         });
     }
 

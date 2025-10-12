@@ -32,7 +32,7 @@
             - Create playlist
 
 ## Fixes:
-    - App mouse draging ugly selection on HTML Doms
+    - ✅ App mouse draging ugly selection on HTML Doms
     - Responsiveness of elements
     - JavaScript page redirect not working on mobile (chrome web driver different standard on phone ??)
 

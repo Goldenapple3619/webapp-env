@@ -1,20 +1,20 @@
 <div class="bg-main flex-col jus-center al-center" style="width: 100%; height: 100%;">
     <div class="radius-smooth border-terciary bg-terciary flex-col jus-between al-center" style="max-width: 400px; width: 100%; max-height: 625px; height: 100%; padding: 25px;">
         <div class="radius-round border-quaduary bg-quaduary flex-row jus-start al-center" style="position: relative; overflow: hidden; width: 65%; overflow: hidden; height: 50px; padding-left: 10px; padding-right: 10px;">
-            <p class="color-main name-song" style="font-size: 25px;">...</p>
+            <p class="color-main name-song not-selectable" style="font-size: 25px;">...</p>
         </div>
         <div class="screen-display-music flex-row jus-center al-center" style="position: relative; height: calc(100% - 50px - 100px - 50px); width: 100%;">
             <div class="bg-invert radius-smooth" style="width: 100%; height: 100%;">
-                <img class="cover-song radius-smooth" style="width: 100%; height: 100%;">
+                <img class="cover-song radius-smooth not-selectable" style="width: 100%; height: 100%;">
             </div>
             <div class="volume-bar radius-smooth bg-secondary" style="cursor: row-resize; position: absolute; height: 100px; width: 5px; left: calc(100% - 25px); top: calc(100% - 65px - 100px);">
                 <div class="volume-button radius-round bg-invert" style="cursor: pointer; position: absolute; width: 15px; height: 15px; left: 50%; transform: translate(-50%, -100%); top: 15px;"></div>
                 <div class="color-main indicator-volume-display" style="margin-right: auto; margin-left: auto; position: absolute; top: calc(100% + 5px); height: fit-content; left: 50%; transform: translateX(-50%); width: fit-content;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E3EAF1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-volume2-icon lucide-volume-2"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg></div>
             </div>
             <div class="scroller-bar radius-smooth bg-secondary" style="cursor: col-resize; position: absolute; width: calc(100% - 100px); height: 5px; margin-left: auto; margin-right: auto; top: calc(100% - 25px);">
-                <div class="color-main actual-time-display" style="margin-top: auto; margin-bottom: auto; position: absolute; left: -5px; height: fit-content; width: fit-content; transform: translateX(-100%)">0:00</div>
+                <div class="color-main actual-time-display not-selectable" style="margin-top: auto; margin-bottom: auto; position: absolute; left: -5px; height: fit-content; width: fit-content; transform: translateX(-100%)">0:00</div>
                 <div class="scroller-button radius-round bg-invert" style="cursor: pointer; position: absolute; width: 15px; height: 15px; margin-top: auto; margin-bottom: auto;"></div>
-                <div class="color-main max-time-display" style="margin-top: auto; margin-bottom: auto; position: absolute; left: calc(100% + 5px); height: fit-content; width: fit-content;">0:00</div>
+                <div class="color-main max-time-display not-selectable" style="margin-top: auto; margin-bottom: auto; position: absolute; left: calc(100% + 5px); height: fit-content; width: fit-content;">0:00</div>
             </div>
         </div>
         <div class="border-secondary radius-really-smooth bg-secondary flex-row jus-between al-center" style="padding: 10px; width: 100%; height: 100px;">
@@ -23,7 +23,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E3EAF1" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-skip-back-icon lucide-skip-back"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/></svg>
                 </button>
                 <hr class="radius-round separator">
-                <button class="menu-button color-main" style="cursor: pointer; font-size: 24px; background-color: transparent; border: none; width: 50px; height: auto;">Menu</button>
+                <button class="menu-button color-main not-selectable" style="cursor: pointer; font-size: 24px; background-color: transparent; border: none; width: 50px; height: auto;">Menu</button>
             </div>
             <button class="bg-invert radius-round play-button flex-row jus-center al-center" style="cursor: pointer; border: double 5px #bcadcb; width: 75px; height: 75px;"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a599cc" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play-icon lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
             <div class="flex-col jus-center al-center" style="width: calc(100% / 2 - 75px); height: 100%;">

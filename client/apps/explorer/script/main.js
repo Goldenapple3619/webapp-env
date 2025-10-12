@@ -22,9 +22,12 @@ document.__explorerScript = (() => {
             document.app.getLibrary().loadImageAsset(icon).then(data => {}).catch(err => {});
 
             document.app.getLibrary().loadImageAsset(icon).then(data => {
+                var item;
+
                 data.content.width = 64;
                 data.content.height = 64;
-                var item = items[items.push({
+                data.content.classList.add("not-selectable");
+                item = items[items.push({
                     name: name,
                     path: path,
                     size: size,
