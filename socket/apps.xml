@@ -1,4 +1,6 @@
 <applist>
     <app src="./apps/explorerApp.py" className="ExplorerApp">explorer</app>
-    <app src="apps/musicApp.py" className="MusicApp">music</app>
+    <app src="./apps/musicApp.py" className="MusicApp">music</app>
+    <app src="./apps/codeApp.py" className="CodeApp">codeEditor</app>
+    <app src="./apps/terminalApp.py" className="TerminalApp">terminalEmulator</app>
 </applist>

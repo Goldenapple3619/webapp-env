@@ -1,10 +1,4 @@
 const { DB } = require("../src/db.js");
+const { config } = require("./env.js");
 
-module.exports = {
-    db: new DB(
-        process.env.POSTGRES_USER,
-        process.env.DB_HOST,
-        process.env.POSTGRES_DB,
-        process.env.POSTGRES_PASSWORD
-    )
-};
+module.exports = { db: new DB(config.db) };

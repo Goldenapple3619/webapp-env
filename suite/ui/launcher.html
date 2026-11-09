@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webapp Env</title>
+<link rel="stylesheet" href="launcher.css">
+</head>
+<body>
+<main>
+    <h1>webapp-env</h1>
+    <p class="sub">Your apps, as real windows on this computer.</p>
+
+    <form id="server" novalidate>
+        <label for="url">Server</label>
+        <div class="row">
+            <input id="url" placeholder="https://my-server.example" autocomplete="off" spellcheck="false">
+            <button id="connect" type="submit">Connect</button>
+        </div>
+        <p id="msg" role="status"></p>
+    </form>
+
+    <section id="apps" hidden>
+        <button class="big" id="desktop" type="button">Virtual desktop</button>
+        <div class="grid" id="grid"></div>
+    </section>
+
+    <footer><span id="version"></span><button id="quit" class="link" type="button">Quit</button></footer>
+</main>
+<script src="launcher.js"></script>
+</body>
+</html>

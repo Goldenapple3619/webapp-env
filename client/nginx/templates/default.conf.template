@@ -1,0 +1,71 @@
+# Rendered by the nginx image entrypoint (envsubst replaces ${API_UPSTREAM}, ${WS_UPSTREAM}, ${CSP_CONNECT_SRC},
+# ${CSP_REMOTE_SRC}, ${DNS_RESOLVER}).
+
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+# keep the scheme chosen by a TLS-terminating proxy in front of us, otherwise use ours
+map $http_x_forwarded_proto $forwarded_proto { default $http_x_forwarded_proto; '' $scheme; }
+# fingerprinted URLs (?v=hash) never change -> cache forever; everything else is revalidated.
+# Fonts are named by content and cached forever as well.
+map $arg_v $asset_cache { default "public, max-age=31536000, immutable"; "" "no-cache"; }
+map $uri $cache_control { ~^/assets/fonts/ "public, max-age=31536000, immutable"; default $asset_cache; }
+
+# Upstream names are resolved at REQUEST time (a variable in proxy_pass + a resolver), not once at start-up. With a
+# static `upstream { server api:8000; }` nginx remembers the address it found at boot: replace the api container
+# (`docker compose up -d api`, a crash, a deploy) and every request is a 502 until nginx itself is restarted.
+# The default resolver is Docker's embedded DNS; set DNS_RESOLVER when running elsewhere.
+resolver ${DNS_RESOLVER} valid=10s ipv6=off;
+
+server {
+    listen 8080;
+    server_name _;
+    server_tokens off;
+    # Redirects (/desktop -> /desktop/) must stay relative: an absolute one is built from nginx's own scheme and port,
+    # which sends a visitor of https://site/ to http://site:8080/ when a TLS proxy sits in front.
+    absolute_redirect off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_static on;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_min_length 512;
+    gzip_types text/css application/javascript text/javascript application/json image/svg+xml text/plain;
+
+    location /api/ {
+        include /etc/nginx/snippets/proxy.conf;
+        set $api_upstream http://${API_UPSTREAM};
+        proxy_pass $api_upstream;   # no URI part: the request URI (and query string) is passed through untouched
+        proxy_set_header Connection "";
+        # uploads and zip downloads are streamed, never buffered to disk by nginx
+        client_max_body_size 0;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /ws {
+        include /etc/nginx/snippets/proxy.conf;
+        set $ws_upstream http://${WS_UPSTREAM};
+        proxy_pass $ws_upstream;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 3600s;   # the client pings every 25 s, so a quiet socket is a dead one
+        proxy_send_timeout 3600s;
+    }
+
+    location = /healthz { access_log off; default_type text/plain; return 200 "ok\n"; }
+
+    location = / { return 302 /desktop/; }
+
+    location / {
+        add_header Cache-Control $cache_control always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "same-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${CSP_REMOTE_SRC}; media-src 'self' blob: ${CSP_REMOTE_SRC}; font-src 'self'; connect-src ${CSP_CONNECT_SRC} ${CSP_REMOTE_SRC}; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+        try_files $uri $uri/ =404;
+    }
+}

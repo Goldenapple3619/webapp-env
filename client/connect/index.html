@@ -1,25 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-        <meta charset="UTF-8">
-
-        <script type="text/javascript">
-            document.onloaded = () => {
-                document.app.build("UI/main.html");
-                document.app.setTitle("Connect");
-
-                var connectHandler = document.__connectScript.new();
-
-                connectHandler.setForm(document.getElementById("user"), document.getElementById("password"), document.getElementById("ip"), document.getElementById("submitButtonConnect"), document.getElementById("errorBoxConnect"));
-            };
-        </script>
-
-        <script type="text/javascript" src="/lib/lrender.js"></script>
-        <script type="text/javascript" src="/script/init.js"></script>
-    </head>
-    <body>
-    </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#dcd4f0">
+    <title>Sign in</title>
+    <link rel="icon" href="data:,">
+    <link rel="preload" href="/assets/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/assets/fonts/pixelify-sans-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/style/common.css">
+    <script defer src="/lib/lloader.js"></script>
+    <script defer src="/lib/lauth.js"></script>
+    <script defer src="/lib/lui.js"></script>
+    <script defer src="/lib/lrender.js"></script>
+    <script defer src="/lib/lws.js"></script>
+    <script defer src="/script/init.js"></script>
+</head>
+<body data-page="public">
+<div id="app">
+    <div class="boot" role="status">
+        <div class="boot__spinner"></div>
+        <div class="boot__text">Loading…</div>
+        <div class="boot__error">
+            <b class="boot__error-message"></b><small class="boot__error-details"></small>
+            <button class="btn" data-retry type="button">Retry</button>
+        </div>
+    </div>
+</div>
+<script src="script/main.js" defer></script>
+</body>
 </html>

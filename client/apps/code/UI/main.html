@@ -1,0 +1,77 @@
+<div class="ce" id="ce-root" tabindex="-1" aria-label="Code editor">
+    <div class="ce-menubar" role="menubar">
+        <button class="ce-menu" data-menu="file" type="button">File</button>
+        <button class="ce-menu" data-menu="edit" type="button">Edit</button>
+        <button class="ce-menu" data-menu="view" type="button">View</button>
+        <span class="ce-title ellipsis" id="ce-title"></span>
+        <button class="ce-tool" data-act="save" title="Save (Ctrl+S)" aria-label="Save"><svg class="icon"><use href="/assets/images/icons.svg#save"/></svg></button>
+        <button class="ce-tool" data-act="panel" title="Problems / Terminal (Ctrl+J)" aria-label="Toggle panel"><svg class="icon"><use href="/assets/images/icons.svg#terminal"/></svg></button>
+        <button class="ce-tool" data-act="sidebar" title="File tree (Ctrl+B)" aria-label="Toggle file tree"><svg class="icon"><use href="/assets/images/icons.svg#sidebar"/></svg></button>
+    </div>
+
+    <div class="ce-main">
+        <div class="ce-center">
+            <div class="ce-tabs" id="ce-tabs" role="tablist" aria-label="Open files"></div>
+
+            <div class="ce-editorwrap" id="ce-editorwrap">
+                <div class="ce-findbar" id="ce-find" hidden>
+                    <input class="ce-find-input" id="ce-find-q" placeholder="Find" aria-label="Find" spellcheck="false">
+                    <input class="ce-find-input" id="ce-find-r" placeholder="Replace" aria-label="Replace" spellcheck="false">
+                    <span class="ce-find-count" id="ce-find-n"></span>
+                    <button data-find="case" title="Match case" aria-pressed="false">Aa</button>
+                    <button data-find="prev" title="Previous (Shift+Enter)" aria-label="Previous"><svg class="icon"><use href="/assets/images/icons.svg#arrow-up"/></svg></button>
+                    <button data-find="next" title="Next (Enter)" aria-label="Next"><svg class="icon"><use href="/assets/images/icons.svg#arrow-down"/></svg></button>
+                    <button data-find="replace" title="Replace">Replace</button>
+                    <button data-find="all" title="Replace all">All</button>
+                    <button data-find="close" title="Close (Esc)" aria-label="Close"><svg class="icon"><use href="/assets/images/icons.svg#x"/></svg></button>
+                </div>
+                <div class="ce-banner" id="ce-banner" hidden>
+                    <span>This file changed on disk.</span>
+                    <button data-banner="reload">Reload</button><button data-banner="keep">Keep my version</button>
+                </div>
+                <div class="ce-editor" id="ce-editor" hidden>
+                    <div class="ce-gutter" id="ce-gutter" aria-hidden="true"><pre class="ce-gutter-inner" id="ce-gutter-inner"></pre></div>
+                    <div class="ce-codewrap" id="ce-codewrap"><pre class="ce-hl" id="ce-hl" aria-hidden="true"></pre></div>
+                </div>
+                <div class="ce-welcome" id="ce-welcome">
+                    <svg class="icon icon--lg"><use href="/assets/images/icons.svg#code"/></svg>
+                    <h3>Code</h3>
+                    <p>Open a file from the tree, or press <span class="kbd">Ctrl</span>+<span class="kbd">N</span> for a new one.</p>
+                </div>
+            </div>
+
+            <div class="ce-panel" id="ce-panel" hidden>
+                <div class="ce-panel-tabs">
+                    <button data-ptab="problems" class="is-active">Problems <span class="ce-count" id="ce-pcount">0</span></button>
+                    <button data-ptab="terminal">Terminal</button>
+                    <span class="grow"></span>
+                    <button data-act="panel" title="Close panel" aria-label="Close panel"><svg class="icon"><use href="/assets/images/icons.svg#x"/></svg></button>
+                </div>
+                <div class="ce-panel-body">
+                    <div class="ce-problems" id="ce-problems"></div>
+                    <div class="ce-term" id="ce-term" hidden></div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="ce-tree" id="ce-tree" aria-label="Files">
+            <div class="ce-tree-head">
+                <span class="ce-tree-title ellipsis" id="ce-root-label" title="Workspace root (click to change)">Explorer</span>
+                <button data-tree="file" title="New file" aria-label="New file"><svg class="icon"><use href="/assets/images/icons.svg#file-plus"/></svg></button>
+                <button data-tree="folder" title="New folder" aria-label="New folder"><svg class="icon"><use href="/assets/images/icons.svg#folder-plus"/></svg></button>
+                <button data-tree="refresh" title="Refresh" aria-label="Refresh"><svg class="icon"><use href="/assets/images/icons.svg#refresh"/></svg></button>
+            </div>
+            <div class="ce-tree-body" id="ce-tree-body" role="tree"></div>
+        </aside>
+    </div>
+
+    <footer class="ce-status">
+        <button id="ce-st-problems" data-act="problems" title="Show problems"><svg class="icon"><use href="/assets/images/icons.svg#alert"/></svg><span>0</span></button>
+        <span class="grow"></span>
+        <span id="ce-st-pos">Ln 1, Col 1</span>
+        <span id="ce-st-sel"></span>
+        <span id="ce-st-eol">LF</span>
+        <span id="ce-st-enc">UTF-8</span>
+        <span id="ce-st-lang">Plain text</span>
+    </footer>
+</div>

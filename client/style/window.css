@@ -1,133 +1,115 @@
-@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap');
-
+/* Window manager + desktop shell. Same pink frame / Pixelify Sans header as before. */
 :root {
     --win-border: solid 4px #FC82B8;
-    --win-radius: 2px;
-    --win-shadow: 0;
+    --win-radius: 8px;
+    --win-shadow: 0 12px 28px -8px rgba(44, 31, 77, .45), 0 2px 6px rgba(44, 31, 77, .25);
+    --win-shadow-blur: 0 4px 12px -4px rgba(44, 31, 77, .3);
 
-    --win-header-size: 25px;
+    --win-header-size: 30px;
     --win-header-background: #FC9DC9;
-    --win-header-border: 0;
-    --win-header-shadow: 0;
+    --win-header-background-inactive: #f3bdd6;
     --win-header-color: #fff;
-
-    --win-body-background: #FAE3ED;
-
-    --win-header-font-family:  "Pixelify Sans", sans-serif;
+    --win-header-font-family: var(--font-pixel);
     --win-header-font-size: 16px;
+    --taskbar-height: 42px;
 }
 
-.window {
-    overflow: hidden;
+/* ---- shell layout: desktop area + taskbar ---- */
+.de { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; background: var(--bg-main); }
+.de-area { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
+    background:
+        radial-gradient(1200px 600px at 15% 0%, rgba(252, 157, 201, .35), transparent 60%),
+        radial-gradient(900px 600px at 100% 100%, rgba(187, 161, 240, .55), transparent 60%),
+        var(--bg-main); }
+.wm-desktop-dom { position: absolute; inset: 0; z-index: 5; pointer-events: none; }   /* windows live here */
+.wm-desktop-dom > .window { pointer-events: auto; }
+.desktop-content { position: absolute; inset: 0; z-index: 1; }
+#selectionRect { position: absolute; display: none; z-index: 2; border: 1px solid #780b28cd; background-color: #b8144040; pointer-events: none; }
 
-    border-radius: var(--win-radius);
-    border: var(--win-border);
-    box-shadow: var(--win-shadow);
+/* desktop icons (files of /desktop + app shortcuts) */
+.de-icons { position: absolute; inset: 0; padding: 12px; display: grid; grid-auto-flow: column; grid-template-rows: repeat(auto-fill, 96px); grid-auto-columns: 92px; gap: 6px; align-content: start; justify-content: start; }
+.de-icon { width: 92px; height: 92px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; border-radius: 12px; color: var(--ink); text-align: center; font-size: 12px; cursor: default; border: 2px solid transparent; background: transparent; }
+.de-icon:hover { background: rgba(255, 255, 255, .35); }
+.de-icon:focus-visible, .de-icon.is-selected { background: var(--selection); border-color: var(--accent); }
+.de-icon__img { width: 48px; height: 48px; display: grid; place-items: center; position: relative; }
+.de-icon__img img { width: 48px; height: 48px; object-fit: contain; }
+.de-icon__img .icon { width: 34px; height: 34px; color: var(--accent-ink); }
+.de-icon__name { width: 100%; line-height: 1.15; max-height: 2.3em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; text-shadow: 0 1px 0 rgba(255, 255, 255, .6); }
+
+/* ---- windows ---- */
+.window { position: absolute; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--win-radius); border: var(--win-border); box-shadow: var(--win-shadow-blur); background: var(--win-body-background); min-width: 220px; min-height: 120px; }
+.window.is-focused { box-shadow: var(--win-shadow); }
+.window.is-maximized { border-radius: 0; border-width: 0; }
+.window.is-minimized { display: none; }
+.window.is-dragging, .window.is-resizing { user-select: none; }
+.window.is-dragging iframe, .window.is-resizing iframe { pointer-events: none; }
+.window.is-opening { animation: win-open .14s ease-out; }
+@keyframes win-open { from { opacity: 0; transform: scale(.96); } }
+
+.win-header { display: flex; flex: none; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; height: var(--win-header-size); padding-left: 8px;
+    font-family: var(--win-header-font-family); font-size: var(--win-header-font-size); color: var(--win-header-color);
+    background: var(--win-header-background-inactive); user-select: none; -webkit-user-select: none; touch-action: none; cursor: default; }
+.window.is-focused .win-header { background: var(--win-header-background); }
+.win-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 0 rgba(120, 20, 70, .35); }
+.win-buttons { display: flex; gap: 3px; padding-right: 4px; }
+.win-buttons button { width: 22px; height: 22px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 5px; background: #FFFAFE; color: #8b3a63; }
+.win-buttons button .icon { width: 13px; height: 13px; }
+.win-buttons button:hover { background: #fff; }
+.win-buttons button:active { background: #f0d9e6; }
+.win-button-close:hover { background: var(--danger) !important; color: #fff !important; }
+.win-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; background: var(--win-body-background); }
+.win-body > iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+.win-resize { position: absolute; z-index: 3; touch-action: none; }
+.win-resize[data-edge="n"] { top: -3px; left: 8px; right: 8px; height: 7px; cursor: ns-resize; }
+.win-resize[data-edge="s"] { bottom: -3px; left: 8px; right: 8px; height: 7px; cursor: ns-resize; }
+.win-resize[data-edge="e"] { right: -3px; top: 8px; bottom: 8px; width: 7px; cursor: ew-resize; }
+.win-resize[data-edge="w"] { left: -3px; top: 8px; bottom: 8px; width: 7px; cursor: ew-resize; }
+.win-resize[data-edge="ne"] { top: -3px; right: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+.win-resize[data-edge="nw"] { top: -3px; left: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+.win-resize[data-edge="se"] { bottom: -3px; right: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+.win-resize[data-edge="sw"] { bottom: -3px; left: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+.window.is-maximized .win-resize { display: none; }
+
+/* ---- taskbar ---- */
+.taskbar { position: relative; z-index: 100; flex: none; display: flex; align-items: center; gap: 8px; height: var(--taskbar-height); padding: 0 8px; background: var(--bg-secondary); border-top: 4px double var(--border-secondary); }
+.taskbar__start { height: 30px; padding: 0 12px; font-family: var(--font-pixel); font-size: 15px; }
+.taskbar__tasks { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.taskbar__tasks::-webkit-scrollbar { display: none; }
+.task-btn { flex: 0 1 170px; min-width: 44px; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 2px solid var(--border-quaduary); border-radius: 10px; background: var(--surface-2); color: var(--ink); font-size: 12px; }
+.task-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-btn:hover { background: #fff; }
+.task-btn.is-focused { background: var(--accent-2); border-color: #e2639d; box-shadow: inset 0 -3px 0 #e2639d; }
+.task-btn.is-minimized { opacity: .65; }
+.taskbar__tray { display: flex; align-items: center; gap: 10px; padding-left: 8px; }
+.tray-status { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; border-radius: 99px; background: transparent; font-size: 12px; color: var(--ink-soft); }
+.tray-status:hover { background: rgba(255, 255, 255, .55); }
+.tray-dot { width: 9px; height: 9px; border-radius: 50%; background: #c9a227; }
+.tray-status[data-state="open"] .tray-dot { background: #3aa57a; }
+.tray-status[data-state="closed"] .tray-dot { background: var(--danger); }
+.task-bar-time { text-align: right; font-size: 12px; line-height: 1.15; color: var(--ink); white-space: nowrap; }
+.task-bar-time b { display: block; font-size: 13px; }
+
+/* ---- start menu ---- */
+.start-menu { position: absolute; left: 8px; bottom: calc(var(--taskbar-height) + 6px); z-index: 200; width: 280px; display: none; flex-direction: column; padding: 10px; gap: 8px; background: var(--bg-secondary); border: 4px double var(--border-secondary); border-radius: var(--radius-lg); box-shadow: var(--elev-2); }
+.start-menu.is-open { display: flex; animation: ui-pop .14s ease-out; }
+.start-menu-header { display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
+.start-avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-family: var(--font-pixel); font-size: 18px; border: 3px double #fff; }
+.start-menu-header .who { line-height: 1.2; min-width: 0; }
+.start-menu-header .who b { display: block; font-family: var(--font-pixel); font-size: 16px; }
+.start-menu-header .who small { color: var(--ink-soft); }
+.start-menu-body { display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: var(--radius); background: var(--surface-2); box-shadow: inset 0 2px 4px rgba(44, 31, 77, .15); }
+.app-shortcut-start-menu { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; text-align: left; }
+.app-shortcut-start-menu:hover { background: var(--selection); }
+.app-shortcut-start-menu .icon { color: var(--accent-ink); width: 20px; height: 20px; }
+.start-menu-footer { display: flex; gap: 6px; justify-content: space-between; }
+
+/* power-off screen */
+.de-off { position: absolute; inset: 0; z-index: 99000; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: #120c22; color: #cdbff0; font-family: var(--font-pixel); text-align: center; }
+.de-off.is-on { display: flex; }
+
+@media (max-width: 640px) {
+    .window { min-width: 0; }
+    .task-btn { flex-basis: 44px; } .task-btn span { display: none; }
+    .task-bar-time b { font-size: 12px; } .task-bar-time span { display: none; }
 }
-
-.win-header {
-    display: flex;
-
-    flex-direction: row;
-    align-items: center;
-    justify-content: start;
-
-    font-family: var(--win-header-font-family);
-    font-size: var(--win-header-font-size);
-    color: var(--win-header-color);
-    height: var(--win-header-size);
-    background: var(--win-header-background);
-    border: var(--win-header-border);
-    box-shadow: var(--win-header-shadow);
-
-    user-select: none;
-    -moz-user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
-    touch-action: manipulation;
-}
-
-.win-body {
-    height: calc(100% - var(--win-header-size));
-    background: var(--win-body-background);
-}
-
-.win-buttons {
-    height: var(--win-header-size);
-    gap: 1px;
-
-    margin-right: 5px;
-}
-
-.win-buttons, .win-buttons * {
-    font-size: calc(var(--win-header-size) - 5px);
-
-    display: inline-flex;
-
-    align-items: center;
-    justify-content: center;
-}
-
-.win-buttons * {
-    width: calc(var(--win-header-size) - 4px);
-    height: calc(var(--win-header-size) - 4px);
-
-    background-color: #FFFAFE;
-
-    appearance: none;
-    box-shadow: none;
-
-    line-height: 1.5;
-
-    text-align: center;
-
-    vertical-align: top;
-    white-space: nowrap;
-
-    outline: 0;
-    border: 0;
-
-    border-radius: 1px;
-}
-
-.win-buttons *:last-child {
-    margin-left: 2px;
-}
-
-.win-buttons *:hover {
-    background-color: #f0eaf0;
-}
-
-.win-buttons *:active {
-    background-color: #e5d8e3;
-}
-
-/* .win-buttons *:first-child:hover {
-    color: rgb(0, 186, 0);
-    background-color: rgba(240, 255, 240, 0.929);
-}
-
-.win-buttons *:nth-child(2):hover {
-    color: rgb(183, 186, 0);
-    background-color: rgba(254, 255, 240, 0.929);
-}
-
-.win-buttons *:last-child:hover {
-    color: rgb(186, 0, 0);
-    background-color: rgba(255, 240, 240, 0.929);
-}
-
-.win-buttons *:first-child:active {
-    color: rgb(0, 233, 0);
-    background-color: rgba(240, 255, 240, 0.756);
-}
-
-.win-buttons *:nth-child(2):active {
-    color: rgb(233, 237, 1);
-    background-color: rgba(253, 255, 222, 0.79);
-}
-
-.win-buttons *:last-child:active {
-    color: rgb(230, 0, 0);
-    background-color: rgba(255, 240, 240, 0.716);
-} */

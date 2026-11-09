@@ -1,17 +1,14 @@
+const path = require("node:path");
+
 class Loader {
     constructor(files = []) {
         this.files = files;
     }
 
     load(callback) {
-        for (var file of this.files) {
-            var temp = require.main.require(file);
-
-            callback(temp);
-        }
+        for (const file of this.files)
+            callback(require(path.resolve(__dirname, "..", file)), file);
     }
 }
 
-module.exports = {
-    Loader: Loader
-};
+module.exports = { Loader };

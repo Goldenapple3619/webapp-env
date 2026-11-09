@@ -1,34 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-        <meta charset="UTF-8">
-
-        <script type="text/javascript">
-            document.onloaded = () => {
-                var win;
-                var temp;
-
-                document.app.setTitle("Desktop");
-
-                var desktopEnv = document.app.build("UI/main.html");
-                var desktopTaskbar = document.app.build("UI/taskbar.html", desktopEnv)
-                var desktopHandler = document.__desktopScript.new();
-
-                desktopHandler.setStartMenu(document.body.querySelector(".start-menu"), document.body.querySelector(".start-menu-button"));
-                desktopHandler.setSelectionCanva(document.getElementById("selectionRect"), document.body.querySelector(".wm-desktop-dom"));
-                desktopHandler.setDrawWindowDom(document.body.querySelector(".wm-desktop-dom"));
-                desktopHandler.openMusicApp();
-                desktopHandler.openExplorerApp();
-            };
-        </script>
-
-        <script type="text/javascript" src="/lib/lrender.js"></script>
-        <script type="text/javascript" src="/lib/lws.js"></script>
-        <script type="text/javascript" src="/script/init.js"></script>
-    </head>
-    <body>
-    </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#E0C6E7">
+    <title>Desktop</title>
+    <link rel="icon" href="data:,">
+    <link rel="preload" href="/assets/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/assets/fonts/pixelify-sans-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/style/common.css">
+    <link rel="stylesheet" href="/style/window.css">
+    <script defer src="/lib/lloader.js"></script>
+    <script defer src="/lib/lauth.js"></script>
+    <script defer src="/lib/lui.js"></script>
+    <script defer src="/lib/lrender.js"></script>
+    <script defer src="/lib/lws.js"></script>
+    <script defer src="/lib/lde.js"></script>
+    <script defer src="/lib/lapps.js"></script>
+    <script defer src="/script/init.js"></script>
+</head>
+<body>
+<div id="app">
+    <div class="boot" role="status">
+        <div class="boot__spinner"></div>
+        <div class="boot__text">Loading…</div>
+        <div class="boot__error">
+            <b class="boot__error-message"></b><small class="boot__error-details"></small>
+            <div style="display:flex;gap:8px"><button class="btn" data-retry type="button">Retry</button><button class="btn" data-login type="button">Sign in again</button></div>
+        </div>
+    </div>
+</div>
+</body>
 </html>

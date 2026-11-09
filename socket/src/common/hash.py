@@ -7,4 +7,4 @@ def hash_file(path: str, algorithm: object = md5, chunk_size: int = 8192) -> str
         for chunk in iter(lambda: fp.read(chunk_size), b""):
             hash_builder.update(chunk)
 
-    return (hash_builder.hexdigest())
+    return hash_builder.hexdigest()

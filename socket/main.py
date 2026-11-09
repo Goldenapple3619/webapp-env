@@ -1,203 +1,125 @@
-from src import *
+from http import HTTPStatus
+from importlib.util import module_from_spec, spec_from_file_location
+from sys import exit
+from threading import Event, Thread
+from traceback import format_exc
+from xml.etree import ElementTree
+import logging
+import sys
 
 from websockets.sync.server import serve
 
-from sys import exit
-from traceback import format_exc
-
-from genericpath import isdir
-from os import environ
-from os.path import abspath
-from os.path import join as join_path
-
-from uuid import uuid4
-from base64 import b64decode
-
-from xml.etree import ElementTree
-from importlib.util import spec_from_file_location, module_from_spec
-
-import sys
+from src import *
+from src.config import Config
+from src.events import PgListener
+from src.network import routes
+from src.network.origins import origin_allowed
 
 
-db: DataBase = DataBase(environ["DB_HOST"], environ["POSTGRES_DB"], environ["POSTGRES_USER"], environ["POSTGRES_PASSWORD"])
-apps: dict = {}
-
-def route_goodbye(server: Server, client: Client, message: MessageJSON):
-    client.send_message(MessageJSON("goodbye", data={"message": "ok"}, code=0))
-    client.close()
-
-def route_disconnect(server: Server, client: Client, message: MessageJSON):
-    if (not client.login or client.id < 0):
-        client.send_message(MessageJSON("disconnect", data={"message": "not_logged_in"}, code=1))
-        return
-
-    for item in client.started_apps_sessions:
-        item.close()
-    client.started_apps_sessions.clear()
-
-    client.login = False
-    client.id = -1
-    client.send_message(MessageJSON("disconnect", data={"message": "ok"}, code=0))
-
-def route_connect(server: Server, client: Client, message: MessageJSON):
-    if (not message.data or "token" not in message.data or not message.data["token"]):
-        client.send_message(MessageJSON("connect", data={"message": "ko"}, code=1))
-        return
-
-    user = db.fetch_dao("users", User, r"WHERE token=%s", [message.data["token"]])
-
-    if (not user):
-        client.send_message(MessageJSON("connect", data={"message": "ko"}, code=1))
-        return
-
-    client.send_message(MessageJSON("connect", data={"message": "ok"}, code=0))
-    client.login = True
-    client.id = user[0].id
-
-def route_start_app(server: Server, client: Client, message: MessageJSON):
-    if (not client.login or client.id == -1):
-        client.send_message(MessageJSON("start_app", data={"message": "not_loggedin"}, code=1))
-        return
-    if (not message.data or "name" not in message.data or message.data["name"] not in apps):
-        client.send_message(MessageJSON("start_app", data={"message": "ko"}, code=1))
-        return
-
-    app_uuid = uuid4().hex
-    client.started_apps_sessions.append(AppSession(app_uuid, apps[message.data["name"]](f"/mnt/system/users/{client.id}/appdata")))
-    client.send_message(MessageJSON(f"start_app{'' if not message.data['identifier'] else ('_' + message.data['identifier'])}", data={"message": "start_done", "session_id": app_uuid}, code=0))
-
-def route_close_app(server: Server, client: Client, message: MessageJSON):
-    if (not client.login or client.id == -1):
-        client.send_message(MessageJSON("close_app", data={"message": "not_loggedin"}, code=1))
-        return
-    if (not message.data or "app_session" not in message.data or not client.get_app(message.data["app_session"])):
-        client.send_message(MessageJSON("close_app", data={"message": "ko"}, code=1))
-        return
-    client.close_app(message.data["app_session"])
-    client.send_message(MessageJSON("close_app", data={"message": "close_done"}, code=0))
-
-def update_app(server: Server, client: Client, message: MessageJSON):
-    if (not client.login or client.id == -1):
-        client.send_message(MessageJSON("update_app", data={"message": "not_loggedin"}, code=1))
-        return
-    if (not message.data or "app_session" not in message.data or "update_type" not in message.data or not client.get_app(message.data["app_session"])):
-        client.send_message(MessageJSON("update_app", data={"message": "ko"}, code=1))
-        return
-
-    app = client.get_app(message.data["app_session"])
-
-    app.save()
-
-    if (not app.write(message.data["update_type"], **(message.data["query"] if "query" in message.data else {}), client=client)):
-        client.send_message(MessageJSON(f"update_app_{message.data['app_session']}", data={"message": "update_ko"}, code=1))
-        return
-
-    for item in client.started_apps_sessions:
-        if (id(item) != id(app) and isinstance(item, app.__class__)):
-            item.load()
-
-    client.send_message(MessageJSON(f"update_app_{message.data['app_session']}", data={"message": "update_done"}, code=0))
-
-def fetch_app(server: Server, client: Client, message: MessageJSON):
-    if (not client.login or client.id == -1):
-        client.send_message(MessageJSON("fetch_app", data={"message": "not_loggedin"}, code=1))
-        return
-    if (not message.data or "app_session" not in message.data or "fetch_type" not in message.data or not client.get_app(message.data["app_session"])):
-        client.send_message(MessageJSON("fetch_app", data={"message": "ko"}, code=1))
-        return
-
-    app = client.get_app(message.data["app_session"])
-    data = app.read(message.data["fetch_type"], **(message.data["query"] if "query" in message.data else {}), client=client)
-
-    if (not data):
-        client.send_message(MessageJSON(f"fetch_app_{message.data['app_session']}", data={"message": "fetch_ko"}, code=1))
-        return
-
-    client.send_message(MessageJSON(f"fetch_app_{message.data['app_session']}", data={"message": "fetch_done", "value": data}, code=0))
-
-
-def route_write(server: Server, client: Client, message: MessageJSON):
-    if (not client.login or client.id == -1):
-        client.send_message(MessageJSON("write", data={"message": "not_loggedin"}, code=1))
-        return
-    if (not message.data or "content" not in message.data or "path" not in message.data):
-        client.send_message(MessageJSON("write", data={"message": "ko"}, code=1))
-        return
-
-    path = abspath(join_path(f"/mnt/system/users/{client.id}/root", message.data["path"].replace('\\', '/'))).replace('\\', '/')
-
-    if (not path.startswith(f"/mnt/system/users/{client.id}/root") or not isdir('/'.join(path.split('/')[:-1]))):
-        client.send_message(MessageJSON("write", data={"message": "not_found"}, code=1))
-        return
-
-    try:
-        with open(path, 'wb') as fp:
-            fp.write(b64decode(message.data["content"]))
-    except Exception:
-        client.send_message(MessageJSON("write", data={"message": "writing_fail"}, code=1))
-        return
-
-    client.send_message(MessageJSON(f"write", data={"message": "write_done"}, code=0))
-
-def load_apps(config_file: str):
-    tree = ElementTree.parse(config_file)
-    root = tree.getroot()
-
-    if (root.tag != "applist"):
+def load_apps(config_file: str) -> dict:
+    root = ElementTree.parse(config_file).getroot()
+    if root.tag != "applist":
         raise KeyError(f"invalid root tag {root.tag}, excepted 'applist'.")
-    
+
+    loaded = {}
     for item in root:
-        if (item.tag != "app"):
+        src, class_name = item.attrib.get("src", ""), item.attrib.get("className", "")
+        if item.tag != "app":
             raise KeyError(f"all tag in applist should be <app>, got: {item.tag}.")
-        if (not item.text):
+        if not item.text or not item.text.strip():
             raise NameError("name of an app should'nt be empty.")
-        if (not item.attrib.get("className", '')):
+        if not class_name:
             raise NameError("className attribute shouldn't be empty.")
-        if (not item.attrib.get("src", '')):
+        if not src:
             raise NameError("src attribute shouldn't be empty.")
-        
-        if (item.text in apps):
-            raise KeyError(f"{item.text} already registered in apps, can't register it twice.")
-        
-        spec = spec_from_file_location(f"app-{hash_file(item.attrib.get("src"))}", item.attrib.get("src"))
-        mod = module_from_spec(spec)
-        spec.loader.exec_module(mod)
 
-        if (not hasattr(mod, item.attrib.get("className"))):
-            raise KeyError(f"class {item.attrib.get("className")} is not in {item.attrib.get("src")}")
+        name = item.text.strip()
+        if name in loaded:
+            raise KeyError(f"{name} already registered in apps, can't register it twice.")
 
-        apps[item.text] = getattr(mod, item.attrib.get("className"))
+        spec = spec_from_file_location(f"app-{hash_file(src)}", src)
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        if not hasattr(module, class_name):
+            raise KeyError(f"class {class_name} is not in {src}")
+        loaded[name] = getattr(module, class_name)
+    return loaded
 
-    print(apps)
+
+def make_process_request(database):
+    def process_request(connection, request):
+        if request.path == "/healthz":
+            if database.ping():
+                return connection.respond(HTTPStatus.OK, "ok\n")
+            return connection.respond(HTTPStatus.SERVICE_UNAVAILABLE, "db_unreachable\n")
+        if not origin_allowed(request.headers.get("Origin"), request.headers.get("Host"), Config.allowed_origins):
+            return connection.respond(HTTPStatus.FORBIDDEN, "origin_not_allowed\n")
+        return None
+
+    return process_request
+
 
 def main() -> int:
-    S: Server = Server(lambda s: serve(s, "0.0.0.0", 80), close_message=MessageJSON("goodbye", data={"message": "connection_end"}, code=0))
-
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stderr)
     try:
-        load_apps("apps.xml")
+        Config.validate()
+        routes.apps.update(load_apps("apps.xml"))
     except Exception as e:
-        print(e)
-        return (1)
+        print(e, file=sys.stderr, flush=True)
+        return 1
 
-    S.add_route("connect", route_connect)
-    S.add_route("disconnect", route_disconnect)
-    S.add_route("goodbye", route_goodbye)
-    S.add_route("start_app", route_start_app)
-    S.add_route("close_app", route_close_app)
-    S.add_route("fetch_app", fetch_app)
-    S.add_route("update_app", update_app)
-    S.add_route("write", route_write)
+    database = DataBase(Config.db_host, Config.db_name, Config.db_user, Config.db_password,
+                        port=Config.db_port, pool_size=Config.db_pool_size)
+    routes.db = database
+    print(f"[*] apps: {', '.join(sorted(routes.apps))}", flush=True)
 
+    S: Server = Server(
+        lambda handler: serve(
+            handler, Config.host, Config.port,
+            max_size=Config.max_message_bytes,
+            process_request=make_process_request(database),
+            ping_interval=20, ping_timeout=30,
+            close_timeout=3,
+        ),
+        close_message=MessageJSON("goodbye", data={"message": "connection_end"}, code=0),
+        burst=Config.rate_burst, rate=Config.rate_per_second, max_per_user=Config.max_connections_per_user,
+        outbox_size=Config.outbox_size, max_unauthenticated=Config.max_unauthenticated,
+        pre_auth_max_bytes=Config.pre_auth_max_bytes, rate_strikes=Config.rate_strikes,
+    )
+    routes.install(S)
+
+    listener = PgListener(database.dsn_kwargs(), {
+        "fs_events": lambda p: S.publish(int(p["user"]), "fs", {
+            "op": p.get("op", "upload"), "dirs": p.get("dirs", []), "files": p.get("files", []), "resync": bool(p.get("resync"))}),
+        "session_events": lambda p: S.kick_session(str(p["sid"])) if p.get("event") == "revoked" else None,
+    },
+        on_resync=lambda: S.publish_all("fs", {"op": "resync", "dirs": [], "files": [], "resync": True}))
+    listener.start()
+
+    stop = Event()
+
+    def sweeper():
+        while not stop.wait(5):
+            try:
+                S.sweep(hard_expiry_seconds=Config.hard_expiry_seconds, auth_timeout_seconds=Config.auth_timeout_seconds)
+            except Exception:
+                print(format_exc(), flush=True)
+
+    Thread(target=sweeper, daemon=True, name="sweeper").start()
+
+    print(f"[*] gateway listening on :{Config.port}", flush=True)
     try:
         S.serve()
-    except Exception as e:
+    except Exception:
         print(f"Uncaught exception: '{format_exc()}'.", file=sys.stderr, flush=True)
-        return (1)
+        return 1
+    finally:
+        stop.set()
+        listener.stop()
+        S.close()
+        database.close()
+    return 0
 
-    S.close()
-    db.close()
 
-    return (0)
-
-if (__name__ == "__main__"):
+if __name__ == "__main__":
     exit(main())

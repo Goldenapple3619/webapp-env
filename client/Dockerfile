@@ -1,27 +1,28 @@
-FROM debian:bookworm-slim
+FROM node:22-alpine AS build
 
-RUN apt-get update && \
-    apt-get install -y sudo && \
-    apt-get install -y w3m && \
-    apt-get install -y apache2 && \
-    a2enmod rewrite && \
-    a2enmod socache_shmcb && \
-    apt-get clean && \
-    apt-get autoclean
+WORKDIR /src
 
-RUN rm -f /var/www/html/index.html
-COPY . /var/www/html/
+COPY package.json package-lock.json ./
 
-RUN rm -f /var/www/html/apache2.conf
+RUN npm ci
 
-RUN echo "*               soft    nofile          8192" >> /etc/security/limits.conf
-RUN echo "*               hard    nofile          8192" >> /etc/security/limits.conf
+COPY . .
 
-COPY ./apache2.conf /etc/apache2/apache2.conf
-RUN rm -f ./apache2.conf
+RUN node tools/optimize.mjs
+RUN node tools/build.mjs --out /dist
 
-STOPSIGNAL SIGWINCH
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 
-EXPOSE 80
+COPY nginx/templates /etc/nginx/templates
+COPY nginx/snippets /etc/nginx/snippets
+COPY --from=build /dist /usr/share/nginx/html
 
-CMD sudo apache2ctl -D FOREGROUND
+ENV API_UPSTREAM=api:8000 \
+    WS_UPSTREAM=socket:8001 \
+    DNS_RESOLVER=127.0.0.11 \
+    CSP_CONNECT_SRC="'self' ws: wss:" \
+    CSP_REMOTE_SRC=""
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 CMD wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1

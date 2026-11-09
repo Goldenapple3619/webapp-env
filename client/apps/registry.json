@@ -1,0 +1,137 @@
+{
+    "apps": [
+        {
+            "id": "explorer",
+            "name": "Explorer",
+            "title": "Explorer",
+            "icon": "folder",
+            "dir": "/apps/explorer/",
+            "setup": "explorer",
+            "size": [
+                880,
+                560
+            ],
+            "handles": {
+                "folder": true
+            }
+        },
+        {
+            "id": "music",
+            "name": "Music",
+            "title": "Music Player",
+            "icon": "music",
+            "dir": "/apps/musicPlayer/",
+            "setup": "musicPlayer",
+            "size": [
+                440,
+                680
+            ],
+            "singleton": true,
+            "handles": {
+                "ext": [
+                    "mp3",
+                    "ogg",
+                    "wav",
+                    "flac",
+                    "m4a",
+                    "aac",
+                    "opus"
+                ]
+            }
+        },
+        {
+            "id": "code",
+            "name": "Code",
+            "title": "Code Editor",
+            "icon": "code",
+            "dir": "/apps/code/",
+            "setup": "codeEditor",
+            "size": [
+                1000,
+                640
+            ],
+            "singleton": true,
+            "handles": {
+                "folder": true,
+                "fallback": true,
+                "ext": [
+                    "txt",
+                    "md",
+                    "json",
+                    "js",
+                    "mjs",
+                    "ts",
+                    "css",
+                    "html",
+                    "htm",
+                    "xml",
+                    "yml",
+                    "yaml",
+                    "toml",
+                    "ini",
+                    "cfg",
+                    "conf",
+                    "log",
+                    "csv",
+                    "py",
+                    "c",
+                    "h",
+                    "cpp",
+                    "hpp",
+                    "java",
+                    "go",
+                    "rs",
+                    "sh",
+                    "bash",
+                    "sql",
+                    "php",
+                    "rb",
+                    "lua",
+                    "env",
+                    "gitignore",
+                    "lst"
+                ]
+            }
+        },
+        {
+            "id": "terminal",
+            "name": "Terminal",
+            "title": "Terminal",
+            "icon": "terminal",
+            "dir": "/apps/terminal/",
+            "setup": "terminalEmulator",
+            "size": [
+                760,
+                480
+            ]
+        },
+        {
+            "id": "viewer",
+            "name": "Viewer",
+            "title": "Viewer",
+            "icon": "image",
+            "builtin": true,
+            "hidden": true,
+            "size": [
+                760,
+                540
+            ],
+            "handles": {
+                "ext": [
+                    "png",
+                    "jpg",
+                    "jpeg",
+                    "gif",
+                    "webp",
+                    "svg",
+                    "bmp",
+                    "avif",
+                    "mp4",
+                    "webm",
+                    "ogv",
+                    "pdf"
+                ]
+            }
+        }
+    ]
+}

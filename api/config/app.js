@@ -1,68 +1,52 @@
-const methodOverride = require('method-override');
-const bodyParser = require("body-parser");
+const express = require("express");
 const cookieParser = require("cookie-parser");
 
 const { App } = require("../src/app.js");
-const { Loader } = require('../src/loader.js');
+const { Loader } = require("../src/loader.js");
+const { config } = require("./env.js");
+const { router, loadedRoutes } = require("./router.js");
+const limits = require("../src/lib/limits.js");
+const { authenticate } = require("../middleware/auth.js");
+const log = require("../src/lib/logger.js");
 
-const { loadedRoutes } = require('./router.js');
+const middlewares = new Loader(["./middleware/requestLog.js", "./middleware/security.js", "./middleware/cors.js", "./middleware/errors.js"]);
+const routes = new Loader(["./routes/handcheck.js", "./routes/sockets.js", "./routes/auth.js", "./routes/files.js"]);
 
-const { fs } = require("fs");
+const myApp = new App(config.host, config.port);
+const app = myApp.getExpressApp();
 
-const middlewares = new Loader(["./middleware/optionRequest.js", "./middleware/notFound.js", "./middleware/notLogin.js"]);
-const routes = new Loader(["./routes/handcheck.js", "./routes/sockets.js", "./routes/account.js"]);
+app.disable("x-powered-by");
+app.set("trust proxy", config.trustProxy);
 
-let myApp = new App(
-    "0.0.0.0",
-    80
-);
-let app = myApp.getExpressApp();
-
-app.use(bodyParser.json({ extended: true }));
-app.use(cookieParser());
-app.use(methodOverride('X-HTTP-Method-Override'));
+const post = [];
 middlewares.load((loaded) => {
-    if (!loaded.middlewares) {
-        console.log(`[!] Empty middleware.`)
-        return
-    }
-    for (var middleware of loaded.middlewares) {
-        var temp = middleware;
-
-        app.use(temp.callback);
-
-        console.log(`[*] Loaded middleware ${temp.callback.name}.`);
-    }
-});
-routes.load((loaded) => {
-    if (!loaded.routes) {
-        console.log(`[!] Empty routes.`)
-        return
-    }
-    for (var route of loaded.routes) {
-        var temp = route;
-        var method = temp.method.toUpperCase();
-        var path = temp.path;
-        var callback = temp.callback;
-
-        loadedRoutes[path + ' ' + method] = route;
-
-        if (method === "GET")
-            app.get(path, callback);
-        if (method === "POST")
-            app.post(path, callback);
-        if (method === "PUT")
-            app.put(path, callback);
-        if (method === "DELETE")
-            app.delete(path, callback);
-        if (method === "ALL")
-            app.all(path, callback);
-
-        console.log(`[*] Loaded route (${method} ${path}) ${callback.name}.`);
+    for (const middleware of loaded.middlewares) {
+        if (loaded.stage === "post") post.push(middleware);
+        else app.use(middleware.callback);
     }
 });
 
+app.use(express.json({ limit: "100kb" }));
+app.use(cookieParser());
 
-module.exports = {
-    app: myApp
-};
+routes.load((loaded, file) => {
+    for (const route of loaded.routes) {
+        const method = route.method.toLowerCase();
+
+        const named = [].concat(route.limit || []).map((name) => {
+            if (!limits[name])
+                throw new Error(`route ${route.method.toUpperCase()} ${route.path} uses an unknown limiter '${name}'`);
+            return limits[name];
+        });
+        const handlers = [...(route.protected ? [authenticate({ allowCookie: route.allowCookie })] : []), ...named, ...(route.middleware || []), route.callback];
+
+        router[method](route.path, ...handlers);
+        loadedRoutes[`${method.toUpperCase()} ${route.path}`] = route;
+        log.debug("route loaded", { method: method.toUpperCase(), path: route.path, file });
+    }
+});
+
+app.use("/api", limits.global, router);
+for (const middleware of post) app.use(middleware.callback);
+
+module.exports = { app: myApp };

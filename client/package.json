@@ -1,0 +1,15 @@
+{
+  "name": "webapp-env-client",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Static client. `npm run build` minifies, content-hashes and precompresses it into ./dist.",
+  "scripts": {
+    "build": "node tools/build.mjs --out dist",
+    "build:prod": "node tools/build.mjs --out dist && node tools/optimize.mjs dist"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "lightningcss": "^1.0.0",
+    "html-minifier-terser": "^7.2.0"
+  }
+}

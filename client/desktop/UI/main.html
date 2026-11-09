@@ -1,6 +1,38 @@
-<div id="deDektopMain" class="de-desktop-dom bg-main flex-col jus-center al-center" style="position: relative; width: 100%; height: 100%;">
-    <div class="wm-desktop-dom" style="z-index: 5; width: 100%; height: 100%;"></div>
-    <div class="desktop-content" style="position: absolute; z-index: 1; width: 100%; height: 100%;">
-        <div id="selectionRect" style="position: absolute; display: none; border: 1px solid #780b28cd; background-color: #b8144054;"></div>
+<div class="de" id="de">
+    <div class="de-area" id="de-area">
+        <div class="desktop-content" id="de-surface">
+            <div class="de-icons" id="de-icons" role="list"></div>
+            <div id="selectionRect"></div>
+        </div>
+        <div class="wm-desktop-dom" id="wm"></div>
+    </div>
+
+    <div class="start-menu" id="start-menu" role="menu" aria-label="Start menu">
+        <div class="start-menu-header">
+            <div class="start-avatar" id="start-avatar">?</div>
+            <div class="who"><b id="start-user">user</b><small>webapp-env</small></div>
+        </div>
+        <div class="start-menu-body" id="start-apps"></div>
+        <div class="start-menu-footer">
+            <button class="btn btn--sm" id="start-settings" type="button"><svg class="icon"><use href="/assets/images/icons.svg#settings"/></svg>Settings</button>
+            <button class="btn btn--sm" id="start-logout" type="button"><svg class="icon"><use href="/assets/images/icons.svg#logout"/></svg>Log off</button>
+            <button class="btn btn--sm btn--danger" id="start-power" type="button"><svg class="icon"><use href="/assets/images/icons.svg#power"/></svg>Shut down</button>
+        </div>
+    </div>
+
+    <footer class="taskbar">
+        <button class="btn btn--primary taskbar__start" id="start-button" type="button" aria-haspopup="menu" aria-expanded="false">Start</button>
+        <div class="taskbar__tasks" id="tasks" role="tablist"></div>
+        <div class="taskbar__tray">
+            <button class="tray-status" id="tray-status" data-state="idle" type="button" title="Connection to the apps gateway">
+                <span class="tray-dot"></span><span id="tray-latency">…</span>
+            </button>
+            <div class="task-bar-time" aria-live="off"><b id="clock-time">--:--</b><span id="clock-date"></span></div>
+        </div>
+    </footer>
+
+    <div class="de-off" id="de-off">
+        <h2 style="font-size:26px">It is now safe to close this tab.</h2>
+        <button class="btn btn--primary" id="power-on" type="button">Power on</button>
     </div>
 </div>

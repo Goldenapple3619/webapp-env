@@ -1,26 +1,17 @@
 from datetime import datetime
 
+
 class User(object):
     SCHEMA = {
-        "username": 'string',
-        "token": 'string',
-        "password": 'string',
-        "id": 'id',
-        "creation_date": 'string'
+        "id": "id",
+        "username": "string",
+        "creation_date": "string",
     }
 
-    def __init__(self, username, token = None, password = "", userid = None, creation_date = datetime.now()):
-        self.username = username
-        self.token = token
-        self.password = password
+    def __init__(self, userid=None, username="", creation_date=None):
         self.id = userid
-        self.creation_date = creation_date
+        self.username = username
+        self.creation_date = creation_date or datetime.now()
 
     def to_object(self):
-        return ({
-            "username": self.username,
-            "token": self.token,
-            "password": self.password,
-            "id": self.id,
-            "creation_date": self.creation_date
-        })
+        return {"id": self.id, "username": self.username, "creation_date": self.creation_date}

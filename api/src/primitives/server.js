@@ -1,15 +1,19 @@
 class Server {
-    static SCHEMA = {host: 'string'};
+    static SCHEMA = { host: "string", priority: "number", label: "string" };
 
-    constructor(host = "127.0.0.1:2117") {
+    constructor(host = "/ws", priority = 100, label = null) {
         this.host = host;
+        this.priority = priority;
+        this.label = label;
+    }
+
+    static fromRow(row) {
+        return new Server(row.host, row.priority, row.label);
     }
 
     toObject() {
-        return ({host: this.host});
+        return { host: this.host, priority: this.priority, label: this.label };
     }
 }
 
-module.exports = {
-    Server: Server
-};
+module.exports = { Server };

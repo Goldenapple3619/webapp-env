@@ -1,181 +1,136 @@
-if (!document.renderer)
-    document.renderer = __renderer.build();
+(function () {
+    var body = document.body;
+    var isPublic = body.dataset.page === 'public';
+    var needsWs = body.dataset.ws !== 'false';
+    var root = document.getElementById('app');
+    var auth = __auth.getInstance();
 
-if (!document.app)
-    document.app = undefined;
-
-if (!document.loaded)
     document.loaded = false;
+    document.auth = auth;
+    document.renderer = __renderer.getInstance();
 
-if (!document.userInstanceCache)
-    document.userInstanceCache = {};
+    var bootText = root.querySelector('.boot__text');
+    var bootError = root.querySelector('.boot__error');
+    document.renderer.registerLoadDisplay({
+        show: function (m) { if (bootText) bootText.textContent = m; },
+        hide: function () { }
+    });
+    document.renderer.registerErrorDisplay({
+        show: function (message, details) {
+            var spinner = root.querySelector('.boot__spinner');
+            if (spinner) spinner.style.display = 'none';
+            if (bootText) bootText.style.display = 'none';
+            if (!bootError) return console.error(message, details);
+            bootError.style.display = 'flex';
+            bootError.querySelector('.boot__error-message').textContent = message;
+            if (details) bootError.querySelector('.boot__error-details').textContent = String(details);
+        },
+        hide: function () { if (bootError) bootError.style.display = 'none'; }
+    });
+    if (bootError) {
+        var retry = bootError.querySelector('[data-retry]');
+        if (retry) retry.addEventListener('click', function () { location.reload(); });
+        var login = bootError.querySelector('[data-login]');
+        if (login) login.addEventListener('click', function () { goLogin(); });
+    }
 
-if (!document.wsscon)
-    document.wsscon = null;
+    function safeNext(value) {
+        if (typeof value !== 'string' || value.charAt(0) !== '/' || value.charAt(1) === '/' || value.charAt(1) === '\\') return null;
+        return value;
+    }
+    function goLogin(reason) {
+        var next = location.pathname + location.search + location.hash;
+        var q = '?next=' + encodeURIComponent(next) + (reason ? '&reason=' + encodeURIComponent(reason) : '');
+        location.replace('/connect/' + q);
+    }
+    document.goLogin = goLogin;
+    document.safeNext = safeNext;
 
-(() => {
-    var main = () => {
+    function wsUrl(host) {
+        if (/^wss?:\/\//i.test(host)) return host;
+        var base = auth.base();
+        var secure = base ? /^https:/i.test(base) : location.protocol === 'https:';
+        var proto = secure ? 'wss' : 'ws';
+        if (host.charAt(0) === '/') return proto + '://' + (base ? new URL(base).host : location.host) + host;
+        return proto + '://' + host;
+    }
 
-        if (!document.location.pathname.endsWith('/')) {
-            document.location.replace(document.location.pathname + '/');
-            return;
-        }
-        if (document.location.pathname == "/connect/" && window.localStorage.getItem("host") && window.localStorage.getItem("token")) {
-            document.location.replace('/desktop/')
-            return;
-        }
-        if (document.location.pathname != "/connect/" && (!window.localStorage.getItem("host") || !window.localStorage.getItem("token"))) {
-            document.location.replace('/connect/')
-            return;
-        }
-
-        document.title = "Loading...";
-        document.head.innerHTML += `
-            <style>* {left: 0;right: 0;top: 0;bottom: 0;padding: 0;margin: 0;box-sizing: border-box;-moz-box-sizing: border-box;-webkit-box-sizing: border-box;}.loader {--c:#fff;width: fit-content;font-weight: bold;font-family: monospace;font-size: 30px;color: #0000;overflow: hidden;text-shadow: 0 0 var(--c),11ch 0 var(--c);animation: l6 2s infinite linear;}.loader:before {content:"Loading...";}@keyframes l6 {to{text-shadow:-11ch 0 var(--c),0ch 0 var(--c)}}</style>
-        `;
-        document.body.style = `width: 100vw; height: 100vh; overflow: hidden; background-color: black; position: relative;`;
-        document.body.innerHTML = `
-            <div id="app" style="flex-direction: column; font-family: 'Inter'; color: white; overflow: hidden; width: 100%; height: 100%; display: flex; position: relative; justify-content:center; align-items: center;"><div class="loader"></div></div>
-            <div id="loaderIndicator" style="pointer-events: none; font-family: 'Inter'; font-size: 10px; color: white; position: absolute; left: 1px; top: calc(100% - 11px);">preparing instance</div>
-            <div id="errorIndicator" style="display: none; align-items: center; flex-direction: column; justify-content:space-evenly; font-family: 'Inter'; background-color: gainsboro; border: solid 1px grey; font-size: 12px; color: black; position: absolute; left: calc(50% - 40%); top: calc(50% - 10%); width: 80%; height: 20%;"><h5>failed to load app</h5><p id="errorIndicatorMessage" style="font-size: 8px;">test</p><button style="font-size: 10px;" onclick="document.location.reload()">Reload app</button></div>
-        `;
-
-        var appCanva = document.getElementById("app");
-        var errorIndicator = document.getElementById("errorIndicator");
-        var errorIndicatorMessage = document.getElementById("errorIndicatorMessage");
-        var loaderIndicator = document.getElementById("loaderIndicator");
-
-        document.app = __appHandler.getInstance("index.json");
-
-        renderer = document.renderer;
-        app = document.app;
-
-        if (!errorIndicator || !errorIndicatorMessage) {
-            document.body.innerHTML = '<div style="width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center;"><h1 style="text-align: center; color: red;">client error: fatal unrecoverable state of the engine, page not builded properly, missing necessary HUD elements</h1></div>';
-            return;
-        }
-
-        renderer.registerErrorDisplay(errorIndicator, errorIndicatorMessage);
-        renderer.registerLoadDisplay(loaderIndicator);
-
-        if (!loaderIndicator) {
-            renderer.showError("client error: could not find engine loader HUD.")
-            return;
-        }
-
-        app.onReady(() => {
-            app.setTitle("App")
-            renderer.hideLoad();
-            renderer.hideError();
-
-            if (!appCanva) {
-                renderer.showError("client error: could not find engine render canva.")
-                return;
-            }
-
-            appCanva.innerHTML = '';
-
-            if (document.location.pathname == "/connect/" || document.location.pathname == "/maintenance/") {
-                console.log("app is ready.");
-
-                if (document.onloaded)
-                    document.onloaded();
-                document.loaded = true;
-                return;
-            }
-
-            app.getLibrary().request("http://" + localStorage.getItem("host") + '/verify', null, "POST", {"Content-Type": "application/json"}).then((data) => {
-                try {
-                    if (JSON.parse(data.request.responseText).message != "token_ok") {
-                        localStorage.removeItem("token");
-                        document.location.replace("/connect/");
-                        return;
-                    }
-                } catch {
-                    localStorage.removeItem("token");
-                    document.location.replace("/connect/");
-                    return;
-                }
-                app.getLibrary().request("http://" + localStorage.getItem("host") + '/wsockets', null, "GET", {"Content-Type": "application/json"}).then((data) => {
-                    try {
-                        let server = JSON.parse(data.request.responseText).wssockets[0];
-
-                        if (!server) {
-                            console.log("no server");
-                            document.location.replace("/maintenance/");
-                            return;
-                        }
-
-                        document.wsscon = __ws.new("ws://" + server["host"]);
-
-                        wsscon = document.wsscon;
-
-                        wsscon.setReconnect((ws) => {
-                            ws.data.send(JSON.stringify({action: "connect", data: {token: localStorage.getItem("token")}}));
-                            console.log("reconnected");
-                        });
-                        wsscon.setRoute("connect", (ws, msg) => {
-                            if (msg["data"]["message"] == "ok" && msg["code"] == 0) {
-                                console.log("connected to socket.");
-                                wsscon.setReady(true);
-                                return;
-                            }
-                            localStorage.removeItem("token");
-                            document.location.replace("/connect/");
-                            return;
-                        });
-
-                        wsscon.open().then((ws) => {
-                            ws.data.send(JSON.stringify({action: "connect", data: {token: localStorage.getItem("token")}}));
-
-                            console.log("app is ready.");
-
-                            try {
-                                if (document.onloaded)
-                                    document.onloaded();
-                            } catch(err) {
-                                console.log(err);
-                                return
-                            }
-                            document.loaded = true;
-                            return;
-                        }).catch((err) => {
-                            console.log(err);
-                            document.location.replace("/maintenance/");
-                            return;
-                        });
-                    } catch (e) {
-                        console.log(e);
-                        document.location.replace("/maintenance/");
-                        return;
-                    }
-                }).catch(err => {
-                    console.log(err);
-                    document.location.replace("/maintenance/");
-                    return;
-                });
-            }).catch(err => {
-                if (err.request) {
-                    localStorage.removeItem("token");
-                    document.location.replace("/connect/");
-                    return;
-                }
-                document.location.replace("/maintenance/");
-                return;
+    function connectGateway() {
+        return auth.request('/wsockets').then(function (res) {
+            var list = (res.wsockets || res.wssockets || []).map(function (s) { return wsUrl(typeof s === 'string' ? s : s.host); });
+            if (!list.length) throw new Error('No gateway is registered (table wsockets is empty).');
+            var ws = __ws.new(list, {
+                getToken: auth.ensure,
+                onSessionEnded: function () { auth.refresh().then(function () { return ws.open(); }).catch(function () { goLogin('expired'); }); }
             });
-        }, (data) => {
-            if (data)
-                renderer.showLoad(`loaded ${data.type} ${data.loaded}`);
-        }, (error) => {
-            app.setTitle("Error")
-            renderer.hideLoad();
-            renderer.showError(error.message);
+            document.wsscon = ws;
+            // every refreshed access token is handed to the open socket
+            auth.onChange(function (type) { if (type === 'token') ws.reauth(); });
+            installConnectionBanner(ws);
+            return ws.open();
         });
-    };
+    }
 
-    if (document.readyState === "complete")
-        return main();
+    function installConnectionBanner(ws) {
+        var banner = null, wasOpen = false;
+        ws.onStatus(function (s) {
+            if (s.state === 'open') { wasOpen = true; if (banner) { banner.remove(); banner = null; } return; }
+            if (!wasOpen || s.state === 'idle') return;
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.setAttribute('role', 'status');
+                banner.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:100002;padding:4px 14px;border-radius:0 0 12px 12px;background:#b3264f;color:#fff;font:12px var(--font-ui);box-shadow:0 2px 8px rgba(0,0,0,.3)';
+                document.body.appendChild(banner);
+            }
+            banner.textContent = s.state === 'connecting' ? 'Reconnecting…' : 'Connection lost. Retrying' + (s.attempts ? ' (attempt ' + s.attempts + ')' : '') + '…';
+        });
+    }
 
-    document.addEventListener("DOMContentLoaded", main);
+    var manifest = location.pathname.replace(/[^/]*$/, '') + 'index.json';
+    document.app = __appHandler.getInstance(manifest);
+
+    var assets = new Promise(function (resolve, reject) {
+        document.app.onReady(resolve, function (info) { document.renderer.showLoad('Loading ' + info.loaded.split('/').pop() + '…'); }, reject);
+    });
+
+    function finish() {
+        document.loaded = true;
+        root.textContent = '';
+        var go = function () { if (typeof document.onloaded === 'function') document.onloaded(); else setTimeout(go, 10); };
+        go();
+    }
+
+    function fail(message, err) {
+        console.error(message, err);
+        document.renderer.showError(message, err && (err.message || err.code));
+    }
+
+    function startPublic() {
+        var resume = auth.hasHint() ? auth.restore().catch(function () { return false; }) : Promise.resolve(false);
+        Promise.all([assets, resume]).then(function (r) {
+            if (r[1]) {
+                var next = safeNext(new URLSearchParams(location.search).get('next'));
+                return location.replace(next || '/desktop/');
+            }
+            finish();
+        }).catch(function (e) { fail('Failed to load the page.', e); });
+    }
+
+    function startProtected() {
+        document.renderer.showLoad('Signing in…');
+        var session = auth.restore();
+        session.then(function (ok) {
+            if (!ok) return goLogin();
+            var steps = needsWs ? [assets, connectGateway()] : [assets];
+            return Promise.all(steps).then(finish);
+        }).catch(function (e) {
+            if (e && e.network) return fail('The server cannot be reached.', e);
+            if (e && e.auth) return goLogin('expired');
+            fail((e && e.message) || 'Failed to start.', e && e.error);
+        });
+
+        auth.onChange(function (type) { if (type.indexOf('cleared:') === 0) goLogin(type.slice(8)); });
+    }
+
+    if (isPublic) startPublic(); else startProtected();
 })();
-

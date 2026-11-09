@@ -1,0 +1,7 @@
+{
+    "styles": ["/style/common.css", "style/main.css"],
+    "UIs": [],
+    "scripts": ["script/main.js"],
+    "images": [],
+    "JSONs": []
+}

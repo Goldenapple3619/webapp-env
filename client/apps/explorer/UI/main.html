@@ -1,11 +1,38 @@
-<div class="bg-main flex-col jus-center al-center" style="width: 100%; height: 100%;">
-    <div class="bg-secondary radius-smooth flex-col jus-start al-center shadow-light" style="width: 100%; height: 100%; max-width: 800px; max-height: 600px; padding: 20px;">
-        <div class="bg-terciary border-terciary radius-round flex-row jus-start al-center" style="padding: 20px; width: 100%; height: 50px;">
-            <h3 class="path-text-explorer not-selectable">
-                /
-            </h3>
-        </div>
-        <div class="item-pool-explorer shadow-inner radius-smooth bg-secondary" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, auto)); overflow-y: auto; overflow-x: hidden; width: 100%; height: calc(100% - 60px); grid-gap: 10px; margin-top: 10px; padding: 10px;">
+<div class="xp" id="xp-root" tabindex="0" aria-label="File explorer">
+    <div class="toolbar xp-nav">
+        <button class="btn btn--ghost btn--icon" data-act="back" title="Back (Alt+Left)" aria-label="Back"><svg class="icon"><use href="/assets/images/icons.svg#arrow-left"/></svg></button>
+        <button class="btn btn--ghost btn--icon" data-act="forward" title="Forward (Alt+Right)" aria-label="Forward"><svg class="icon"><use href="/assets/images/icons.svg#arrow-right"/></svg></button>
+        <button class="btn btn--ghost btn--icon" data-act="up" title="Up one level (Backspace)" aria-label="Up"><svg class="icon"><use href="/assets/images/icons.svg#arrow-up"/></svg></button>
+        <button class="btn btn--ghost btn--icon" data-act="refresh" title="Refresh (F5)" aria-label="Refresh"><svg class="icon"><use href="/assets/images/icons.svg#refresh"/></svg></button>
+        <div class="xp-path grow" id="xp-path" title="Click to type a path (Ctrl+L)"></div>
+        <label class="xp-search"><svg class="icon"><use href="/assets/images/icons.svg#search"/></svg><input class="input" id="xp-search" type="search" placeholder="Search in this folder" aria-label="Search"></label>
+    </div>
+    <div class="toolbar xp-actions">
+        <button class="btn btn--sm" data-act="mkdir" title="New folder"><svg class="icon"><use href="/assets/images/icons.svg#folder-plus"/></svg>Folder</button>
+        <button class="btn btn--sm" data-act="mkfile" title="New file"><svg class="icon"><use href="/assets/images/icons.svg#file-plus"/></svg>File</button>
+        <button class="btn btn--sm" data-act="upload" title="Upload files"><svg class="icon"><use href="/assets/images/icons.svg#upload"/></svg>Upload</button>
+        <span class="sep"></span>
+        <button class="btn btn--ghost btn--icon btn--sm" data-act="cut" title="Cut (Ctrl+X)" aria-label="Cut"><svg class="icon"><use href="/assets/images/icons.svg#scissors"/></svg></button>
+        <button class="btn btn--ghost btn--icon btn--sm" data-act="copy" title="Copy (Ctrl+C)" aria-label="Copy"><svg class="icon"><use href="/assets/images/icons.svg#copy"/></svg></button>
+        <button class="btn btn--ghost btn--icon btn--sm" data-act="paste" title="Paste (Ctrl+V)" aria-label="Paste"><svg class="icon"><use href="/assets/images/icons.svg#clipboard"/></svg></button>
+        <button class="btn btn--ghost btn--icon btn--sm" data-act="rename" title="Rename (F2)" aria-label="Rename"><svg class="icon"><use href="/assets/images/icons.svg#pencil"/></svg></button>
+        <button class="btn btn--ghost btn--icon btn--sm" data-act="download" title="Download" aria-label="Download"><svg class="icon"><use href="/assets/images/icons.svg#download"/></svg></button>
+        <button class="btn btn--ghost btn--icon btn--sm btn--danger" data-act="delete" title="Delete (Del)" aria-label="Delete"><svg class="icon"><use href="/assets/images/icons.svg#trash"/></svg></button>
+        <span class="grow"></span>
+        <select class="input xp-sort" id="xp-sort" aria-label="Sort by">
+            <option value="name">Name</option><option value="mtime">Modified</option><option value="size">Size</option><option value="ext">Type</option>
+        </select>
+        <button class="btn btn--ghost btn--icon btn--sm" data-act="view" title="Switch view" aria-label="Switch view"><svg class="icon"><use href="/assets/images/icons.svg#list"/></svg></button>
+    </div>
+    <div class="xp-body">
+        <aside class="xp-places" id="xp-places" aria-label="Places"></aside>
+        <div class="xp-main" id="xp-main">
+            <div class="xp-items" id="xp-items" role="listbox" aria-multiselectable="true"></div>
+            <div class="xp-empty" id="xp-empty" hidden></div>
+            <div class="xp-drop" id="xp-drop" hidden><svg class="icon icon--lg"><use href="/assets/images/icons.svg#upload"/></svg>Drop to upload here</div>
         </div>
     </div>
+    <div class="xp-status"><span id="xp-count"></span><span class="grow"></span><span id="xp-upload"></span></div>
+    <input type="file" id="xp-file" multiple hidden>
+    <input type="file" id="xp-folder" webkitdirectory hidden>
 </div>

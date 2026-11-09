@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Terminal</title>
+    <link rel="icon" href="data:,">
+    <link rel="preload" href="/assets/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/style/common.css">
+    <script defer src="/lib/lloader.js"></script>
+    <script defer src="/lib/lauth.js"></script>
+    <script defer src="/lib/lui.js"></script>
+    <script defer src="/lib/lrender.js"></script>
+    <script defer src="/lib/lws.js"></script>
+    <script defer src="/lib/lapps.js"></script>
+    <script defer src="/script/init.js"></script>
+    <script defer src="/script/standalone.js"></script>
+</head>
+<body data-app="terminal">
+<div id="app">
+    <div class="boot" role="status">
+        <div class="boot__spinner"></div><div class="boot__text">Loading…</div>
+        <div class="boot__error"><b class="boot__error-message"></b><small class="boot__error-details"></small>
+            <div style="display:flex;gap:8px"><button class="btn" data-retry type="button">Retry</button><button class="btn" data-login type="button">Sign in again</button></div></div>
+    </div>
+</div>
+</body>
+</html>

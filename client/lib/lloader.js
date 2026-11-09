@@ -1,145 +1,187 @@
-__lloader = (() => {
+/**
+ * __lloader - resource loader (scripts, styles, images, UI templates, JSON, app manifests).
+ *
+ * Same public surface as before (invokeCSS, loadImageAsset, loadUi, request, loadJSON, get*), but:
+ *  - everything is cached by *normalised URL* and de-duplicated (two callers asking for the same
+ *    template share one request; the old code fetched it twice and discarded one),
+ *  - a manifest (index.json) is loaded in PARALLEL instead of one file after the other; scripts are
+ *    still executed in manifest order (dynamic scripts with async=false download in parallel and
+ *    execute in insertion order),
+ *  - when the build step injected window.__V (content hashes) URLs get "?v=<hash>" and can be cached
+ *    forever by nginx,
+ *  - getInstance() really is a singleton now (it used to create a new empty cache on every call).
+ */
+var __lloader = (() => {
     var instance = null;
 
-    var images = {};
-    var UIs = {};
-    var JSONs = {};
-
-    function invokeCSS(cssUrl) {
-        return new Promise((resolve, reject) => {
-            var style = document.createElement("link");
-
-            style.setAttribute("type", "text/css");
-            style.setAttribute("rel", "stylesheet");
-            style.setAttribute("href", cssUrl);
-
-            document.getElementsByTagName("head")[0].appendChild(style);
-
-            style.addEventListener("load", (event) => {
-                resolve({status: true, loaded: cssUrl, type: "style"});
-            });
-
-            style.addEventListener("error", (event) => {
-                reject({
-                    status: false,
-                    message: `Failed to load style ${cssUrl}`
-                });
-            });
-        });
-    }
-
-    function request(url, body = undefined, method = "GET", headers = {}) {
-        return new Promise((resolve, reject) => {
-            var req = (window.XMLHttpRequest ? new XMLHttpRequest : new ActiveXObject("Microsoft.XMLHTTP"));
-
-            req.open(method, url, 1);
-            Object.keys(headers).forEach((x) => {
-                req.setRequestHeader(x, headers[x]);
-            });
-            req.withCredentials = true;
-            req.onreadystatechange = () => {
-                if (req.readyState === XMLHttpRequest.DONE && req.status >= 200 && req.status <= 299) {
-                    resolve({status: true, loaded: url, type: "url", request: req});
-                } else if (req.readyState === XMLHttpRequest.DONE) {
-                    reject({status: false, request: req, message: `invalid response code from ${method} ${url} (code: ${req.status})`});
-                }
-            }
-            req.onerror = () => {
-                reject({status: false, message: `unknown error when requesting ${method} ${url}`});
-            }
-            req.send(body);
-        });
-    }
-
-    function loadJSON(url) {
-        return new Promise((resolve, reject) => {
-            if (JSONs[url]) {
-                resolve({status: true, loaded: url, type: "json", content: JSONs[url]});
-                return;
-            }
-
-            request(url).then(data => {
-                JSONs[url] = JSON.parse(data.request.responseText);
-                resolve({status: true, loaded: url, type: "json", content: JSONs[url]});
-            }).catch(err => {
-                reject({status: false, message: `Failed to load json ${url}`});
-            });
-        });
-    }
-
-    function loadUi(url) {
-        return new Promise((resolve, reject) => {
-            request(url).then(data => {
-                var temp;
-
-                if (UIs[url]) {
-                    resolve({status: true, loaded: url, type: "ui", content: UIs[url]});
-                    return;
-                }
-
-                temp = document.createElement('div');
-
-                temp.style.width = "100%";
-                temp.style.height = "100%";
-                temp.innerHTML = data.request.responseText;
-                UIs[url] = temp;
-                resolve({status: true, loaded: url, type: "ui", content: temp});
-            }).catch(err => {
-                reject({status: false, message: `Failed to load ui ${url}`});
-            });
-        });
-    }
-
-    function loadImageAsset(assetUrl) {
-        return new Promise((resolve, reject) => {
-            var image = new Image();
-
-            if (images[assetUrl]) {
-                resolve({status: true, loaded: assetUrl, type: "image", content: images[assetUrl]});
-                return;
-            }
-
-            image.setAttribute("src", assetUrl);
-            images[assetUrl] = image;
-
-            image.addEventListener("load", (event) => {
-                resolve({status: true, loaded: assetUrl, type: "image", content: image});
-            });
-
-            image.addEventListener("error", (event) => {
-                reject({
-                    status: false,
-                    message: `Failed to load image ${assetUrl}`
-                });
-            });
-        });
-    }
-
     function init() {
+        var images = {};
+        var UIs = {};
+        var JSONs = {};
+        var pending = { ui: {}, json: {}, image: {}, css: {}, script: {}, manifest: {} };
+
+        /** "UI/main.html" -> "/apps/x/UI/main.html"; keeps absolute http(s) URLs of other origins. */
+        function abs(url, base) {
+            var u = new URL(url, new URL(base || location.href, location.href));
+            return u.origin === location.origin ? u.pathname + u.search : u.href;
+        }
+
+        /** Adds the build hash, if any, so the browser can cache the file forever. */
+        function versioned(url) {
+            var map = window.__V;
+            if (!map || /^https?:/i.test(url)) return url;
+            var v = map[url.split('?')[0]];
+            return v ? url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + v : url;
+        }
+
+        function once(bucket, key, factory) {
+            if (!pending[bucket][key])
+                pending[bucket][key] = factory().catch(function (err) {
+                    delete pending[bucket][key]; // allow a later retry
+                    throw err;
+                });
+            return pending[bucket][key];
+        }
+
+        /** fetch() wrapped in the old XHR-shaped result: { request: { status, responseText } }. */
+        function request(url, body, method, headers) {
+            method = method || 'GET';
+            return fetch(url, { method: method, headers: headers || {}, body: body, credentials: 'same-origin' }).then(function (res) {
+                return res.text().then(function (text) {
+                    var req = {
+                        status: res.status, statusText: res.statusText, responseText: text, ok: res.ok,
+                        getResponseHeader: function (n) { return res.headers.get(n); }
+                    };
+                    if (res.ok) return { status: true, loaded: url, type: 'url', request: req };
+                    throw { status: false, request: req, message: 'invalid response code from ' + method + ' ' + url + ' (code: ' + res.status + ')' };
+                });
+            }, function (err) {
+                throw { status: false, error: err, message: 'unknown error when requesting ' + method + ' ' + url };
+            });
+        }
+
+        function invokeCSS(cssUrl) {
+            var key = abs(cssUrl);
+            return once('css', key, function () {
+                return new Promise(function (resolve, reject) {
+                    // already linked statically by the page (common.css): nothing to load
+                    var existing = Array.prototype.some.call(document.querySelectorAll('link[rel="stylesheet"]'), function (l) {
+                        return new URL(l.getAttribute('href'), location.href).pathname === key.split('?')[0];
+                    });
+                    if (existing) return resolve({ status: true, loaded: key, type: 'style' });
+                    var style = document.createElement('link');
+                    style.rel = 'stylesheet';
+                    style.href = versioned(key);
+                    style.addEventListener('load', function () { resolve({ status: true, loaded: key, type: 'style' }); });
+                    style.addEventListener('error', function () { reject({ status: false, message: 'Failed to load style ' + key }); });
+                    document.head.appendChild(style);
+                });
+            });
+        }
+
+        function loadScript(scriptUrl) {
+            var key = abs(scriptUrl);
+            return once('script', key, function () {
+                return new Promise(function (resolve, reject) {
+                    var existing = Array.prototype.some.call(document.querySelectorAll('script[src]'), function (s) {
+                        return new URL(s.getAttribute('src'), location.href).pathname === key.split('?')[0];
+                    });
+                    if (existing) return resolve({ status: true, loaded: key, type: 'script' });
+                    var script = document.createElement('script');
+                    script.async = false; // keep insertion order while downloading in parallel
+                    script.src = versioned(key);
+                    script.addEventListener('load', function () { resolve({ status: true, loaded: key, type: 'script' }); });
+                    script.addEventListener('error', function () { reject({ status: false, message: 'Failed to load script ' + key }); });
+                    document.head.appendChild(script);
+                });
+            });
+        }
+
+        function loadJSON(url) {
+            var key = abs(url);
+            if (JSONs[key]) return Promise.resolve({ status: true, loaded: key, type: 'json', content: JSONs[key] });
+            return once('json', key, function () {
+                return request(versioned(key)).then(function (data) {
+                    JSONs[key] = JSON.parse(data.request.responseText);
+                    return { status: true, loaded: key, type: 'json', content: JSONs[key] };
+                }).catch(function () { throw { status: false, message: 'Failed to load json ' + key }; });
+            });
+        }
+
+        function loadUi(url) {
+            var key = abs(url);
+            if (UIs[key]) return Promise.resolve({ status: true, loaded: key, type: 'ui', content: UIs[key] });
+            return once('ui', key, function () {
+                return request(versioned(key)).then(function (data) {
+                    var temp = document.createElement('div');
+                    temp.style.width = '100%';
+                    temp.style.height = '100%';
+                    temp.innerHTML = data.request.responseText;
+                    UIs[key] = temp;
+                    return { status: true, loaded: key, type: 'ui', content: temp };
+                }).catch(function () { throw { status: false, message: 'Failed to load ui ' + key }; });
+            });
+        }
+
+        function loadImageAsset(assetUrl) {
+            var key = abs(assetUrl);
+            if (images[key]) return Promise.resolve({ status: true, loaded: key, type: 'image', content: images[key] });
+            return once('image', key, function () {
+                return new Promise(function (resolve, reject) {
+                    var image = new Image();
+                    image.addEventListener('load', function () { images[key] = image; resolve({ status: true, loaded: key, type: 'image', content: image }); });
+                    image.addEventListener('error', function () { reject({ status: false, message: 'Failed to load image ' + key }); });
+                    image.src = versioned(key);
+                });
+            });
+        }
+
+        /**
+         * Loads everything an app lists in its index.json. Relative entries are resolved against the
+         * manifest's own folder, so the same manifest works for the standalone page and when the
+         * desktop loads the app lazily the first time it is opened.
+         */
+        function loadManifest(manifestUrl, onProgress) {
+            var base = abs(manifestUrl);
+            return once('manifest', base, function () {
+                return loadJSON(base).then(function (res) {
+                    var json = res.content;
+                    var r = function (u) { return abs(u, base); };
+                    var jobs = [];
+                    var track = function (p) {
+                        return p.then(function (d) { if (onProgress) onProgress(d); return d; });
+                    };
+
+                    (json.styles || []).forEach(function (u) { jobs.push(track(invokeCSS(r(u)))); });
+                    (json.images || []).forEach(function (u) { jobs.push(track(loadImageAsset(r(u)))); });
+                    (json.UIs || []).forEach(function (u) { jobs.push(track(loadUi(r(u)))); });
+                    (json.JSONs || []).forEach(function (u) { jobs.push(track(loadJSON(r(u)))); });
+                    (json.scripts || []).forEach(function (u) { jobs.push(track(loadScript(r(u)))); });
+                    return Promise.all(jobs);
+                });
+            });
+        }
+
         return ({
+            abs: abs,
+            versioned: versioned,
             invokeCSS: invokeCSS,
+            loadScript: loadScript,
             loadImageAsset: loadImageAsset,
             loadUi: loadUi,
             request: request,
             loadJSON: loadJSON,
-            getImageAsset: function (assetUrl) {
-                return (images[assetUrl]);
-            },
-            getUI: function (url) {
-                return (UIs[url]);
-            },
-            getJSON: function (url) {
-                return (JSONs[url]);
-            }
+            loadManifest: loadManifest,
+            getImageAsset: function (assetUrl) { return images[abs(assetUrl)]; },
+            getUI: function (url) { return UIs[abs(url)]; },
+            getJSON: function (url) { return JSONs[abs(url)]; }
         });
     }
 
     return ({
         getInstance: function () {
-            if (instance === null)
-                this.instance = init();
-
-            return (this.instance);
+            if (instance === null) instance = init();
+            return instance;
         }
     });
 })();
