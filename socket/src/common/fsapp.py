@@ -1,10 +1,12 @@
 import posixpath
 
 from ..network.wsserver import App, AppError
-from .userfs import UserFS
+from .runner import shared_runner
+from .userfs import UserFS, is_virtual
+from .virtualfs import VirtualFS
 
 PLACES = [("Desktop", "/desktop"), ("Documents", "/documents"), ("Downloads", "/downloads"),
-          ("Music", "/music"), ("Pictures", "/pictures"), ("Videos", "/videos")]
+          ("Music", "/music"), ("Pictures", "/pictures"), ("Videos", "/videos"), ("Virtual", "/virtual")]
 
 def _paths(kwargs) -> list:
     paths = kwargs.get("paths")
@@ -20,6 +22,7 @@ class FsApp(App):
     def __init__(self, ctx):
         super().__init__(ctx)
         self.fs = UserFS(ctx.root_path)
+        self.vfs = VirtualFS(shared_runner())  # /virtual: read-only mount of the tools (never part of the user's files)
 
     def changed(self, op: str, dirs=(), files=()):
         payload = {"op": op, "dirs": sorted(set(dirs)), "files": sorted(set(files))}
@@ -33,10 +36,12 @@ class FsApp(App):
         return {"event": "fs_changed", **payload}
 
     def fetch(self, fetch_type, **kwargs):
+        path = kwargs.get("path", "/")
+        virtual = isinstance(path, str) and is_virtual(path)
         if fetch_type == "listdir":
-            return self.fs.listdir(kwargs.get("path", "/"))
+            return self.vfs.listdir(path) if virtual else self.fs.listdir(path)
         if fetch_type == "stat":
-            return {"type": "stat", "stat": self.fs.stat(kwargs.get("path", "/"))}
+            return {"type": "stat", "stat": self.vfs.stat(path) if virtual else self.fs.stat(path)}
         if fetch_type == "search":
             return self.fs.search(kwargs.get("path", "/"), kwargs.get("query", ""))
         if fetch_type == "places":
@@ -46,7 +51,7 @@ class FsApp(App):
 
     def _is_dir(self, path) -> bool:
         try:
-            return self.fs.stat(path)["type"] == "folder"
+            return (self.vfs.stat(path) if is_virtual(path) else self.fs.stat(path))["type"] == "folder"
         except AppError:
             return False
 

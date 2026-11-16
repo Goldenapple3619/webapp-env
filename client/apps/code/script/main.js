@@ -27,26 +27,26 @@
         var codewrap = $('#ce-codewrap'), hl = $('#ce-hl'), gutterInner = $('#ce-gutter-inner');
         var editorEl = $('#ce-editor'), welcome = $('#ce-welcome'), tabsEl = $('#ce-tabs');
 
-        // ------------------------------------------------------------------------------- state
         var files = null, destroyed = false;
         var docs = [], active = null, untitled = 0, nextId = 1;
         var rootPath = '/';
         var treeRoot = null, nodes = {};
         var panelTab = 'problems', termView = null;
-        var fontSize = parseInt(localStorage.getItem('ce.font') || '13', 10);
+        var fontSize = parseInt(localStorage.getItem('ce.font') || '0', 10) || 0;   // 0 = not zoomed by the user: the theme decides
         var findCase = false;
         var stateTimer = null, renderQueued = false, lastLines = -1;
 
         function fail(e) { ui.toast(ui.errorText(e), 'error'); }
+        // The size comes from the theme (--ce-font-size, Appearance > Code) until the user zooms with Ctrl +/-; the line height
+        // is always font + 7px (an INTEGER, so the line numbers, the textarea and goto-line maths can never drift apart).
+        function curFont() { return fontSize || parseInt(getComputedStyle(rootEl).getPropertyValue('--ce-font-size'), 10) || 13; }
         function applyFont() {
-            rootEl.style.setProperty('--ce-font-size', fontSize + 'px');
-            rootEl.style.setProperty('--ce-lh', Math.round(fontSize * 1.55) + 'px');
+            if (fontSize) rootEl.style.setProperty('--ce-font-size', fontSize + 'px');
             if (active) queueRender();
         }
-        function lineHeight() { return Math.round(fontSize * 1.55); }
+        function lineHeight() { return curFont() + 7; }
         applyFont();
 
-        // ---------------------------------------------------------------------- gateway session
         ws.app('codeEditor').then(function (h) {
             if (destroyed) return h.close();
             files = h;
@@ -70,7 +70,6 @@
             });
         }, fail);
 
-        // ----------------------------------------------------------------------------- the tree
         function mkNode(entry) { return { path: entry.path, name: entry.name, type: entry.type, expanded: false, children: null }; }
         function initTree() {
             treeRoot = { path: rootPath, name: rootPath === '/' ? 'Home' : basename(rootPath), type: 'folder', expanded: true, children: null };
@@ -186,7 +185,6 @@
             }, fail);
         }
 
-        // ------------------------------------------------------------------------- documents
         function makeDoc(o) {
             var ta = document.createElement('textarea');
             ta.className = 'ce-input';
@@ -289,7 +287,11 @@
                 t.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(d); } });
                 tabsEl.appendChild(t);
             });
-            var current = tabsEl.querySelector('.is-active'); if (current) current.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            var current = tabsEl.querySelector('.is-active');
+            if (current) {   // scroll the strip itself; scrollIntoView() would also move every scrollable ancestor
+                var tb = tabsEl.getBoundingClientRect(), cb = current.getBoundingClientRect();
+                if (cb.left < tb.left) tabsEl.scrollLeft -= tb.left - cb.left + 8; else if (cb.right > tb.right) tabsEl.scrollLeft += cb.right - tb.right + 8;
+            }
         }
 
         function updateChrome() {
@@ -335,7 +337,7 @@
                 var out = new Array(lines);
                 for (var i = 0; i < lines; i++) out[i] = i + 1;
                 gutterInner.textContent = out.join('\n') + '\n';
-                $('#ce-gutter').style.minWidth = (String(lines).length * (fontSize * 0.62) + 26) + 'px';
+                $('#ce-gutter').style.minWidth = (String(lines).length * (curFont() * 0.62) + 26) + 'px';
             }
             syncScroll(active.ta);
         }
@@ -365,7 +367,8 @@
             var n = ta.selectionEnd - ta.selectionStart;
             $('#ce-st-sel').textContent = n ? n + ' selected' : '';
         }
-        document.addEventListener('selectionchange', function () { if (active && document.activeElement === active.ta) updateStatus(); });
+        function onSelectionChange() { if (active && document.activeElement === active.ta) updateStatus(); }
+        document.addEventListener('selectionchange', onSelectionChange);   // removed in nonStandaloneDestroy: it used to outlive the window
 
         function insert(ta, text) {
             ta.focus();
@@ -450,7 +453,6 @@
             }
         }
 
-        // ---------------------------------------------------------------------- go to line
         function gotoLine(doc, line, col) {
             var v = doc.ta.value, idx = 0;
             for (var i = 1; i < line && idx >= 0; i++) { idx = v.indexOf('\n', idx); if (idx >= 0) idx++; }
@@ -466,7 +468,6 @@
             ui.prompt({ title: 'Go to line', label: 'Line number', value: '', validate: function (v) { return /^\d+$/.test(v) ? '' : 'Enter a number'; } }).then(function (n) { if (n) gotoLine(active, parseInt(n, 10)); });
         }
 
-        // ------------------------------------------------------------------------- find / replace
         var findBar = $('#ce-find'), findQ = $('#ce-find-q'), findR = $('#ce-find-r'), findN = $('#ce-find-n');
         function matches() {
             if (!active || !findQ.value) return [];
@@ -528,7 +529,6 @@
                 'case': function () { findCase = !findCase; b.setAttribute('aria-pressed', String(findCase)); updateFindCount(); } })[b.dataset.find]();
         });
 
-        // --------------------------------------------------------------------------- saving
         function save(doc, force) {
             doc = doc || active;
             if (!doc) return Promise.resolve(false);
@@ -563,7 +563,6 @@
         }
         function saveAll() { return docs.filter(isDirty).reduce(function (p, d) { return p.then(function (ok) { return ok ? save(d) : false; }); }, Promise.resolve(true)); }
 
-        // ------------------------------------------------------------- external changes + events
         function reloadDoc(doc, r) {
             doc.ta.value = r.content; doc.saved = r.content; doc.mtime = r.mtime; doc.eol = r.eol; doc.conflict = false;
             if (doc === active) { renderNow(); $('#ce-banner').hidden = true; }
@@ -591,7 +590,6 @@
             }, fail);
         });
 
-        // --------------------------------------------------------------------- lint + problems
         function scheduleLint(doc) { clearTimeout(doc.lintTimer); doc.lintTimer = setTimeout(function () { lint(doc); }, 600); }
         function lint(doc, now) {
             if (!files || (doc.language !== 'python' && doc.language !== 'json')) { doc.problems = []; if (doc === active) paintProblems(); return; }
@@ -619,11 +617,48 @@
             });
         }
 
-        // ------------------------------------------------------------------------- layout toggles
-        function toggleSidebar(force) { var t = $('#ce-tree'); var hide = force === undefined ? !t.classList.contains('is-hidden') : !force; t.classList.toggle('is-hidden', hide); saveStateSoon(); }
+        var LAYOUT_KEY = 'ce.layout';
+        var layoutPrefs = {}; try { layoutPrefs = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}') || {}; } catch (e) { layoutPrefs = {}; }
+        function applyLayout() {
+            var w = rootEl.clientWidth || 800, hgt = rootEl.clientHeight || 500;
+            if (layoutPrefs.tree) rootEl.style.setProperty('--ce-tree-w', Math.max(140, Math.min(layoutPrefs.tree, w * 0.6)) + 'px');
+            if (layoutPrefs.panel) rootEl.style.setProperty('--ce-panel-h', Math.max(80, Math.min(layoutPrefs.panel, hgt * 0.7)) + 'px');
+        }
+        function splitter(el, axis) {
+            function setSize(px) {
+                var box = rootEl.getBoundingClientRect();
+                if (axis === 'x') layoutPrefs.tree = Math.round(Math.max(140, Math.min(px, box.width * 0.6)));
+                else layoutPrefs.panel = Math.round(Math.max(80, Math.min(px, box.height * 0.7)));
+                applyLayout(); try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layoutPrefs)); } catch (e) { /* private mode */ }
+            }
+            el.addEventListener('pointerdown', function (e) {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                el.setPointerCapture(e.pointerId); el.classList.add('is-active'); rootEl.classList.add('is-resizing');
+                function move(ev) {
+                    var box = rootEl.getBoundingClientRect();
+                    // the tree sits on the right: its width is the distance from the pointer to the right edge; the panel hangs from the bottom (above the status bar)
+                    if (axis === 'x') setSize(box.right - ev.clientX); else setSize(box.bottom - ev.clientY - 24);
+                }
+                function up() { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); el.classList.remove('is-active'); rootEl.classList.remove('is-resizing'); }
+                el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+            });
+            el.addEventListener('keydown', function (e) {   // keyboard: arrows resize in 16px steps
+                var step = (e.shiftKey ? 48 : 16), cur = axis === 'x' ? ($('#ce-tree').offsetWidth) : ($('#ce-panel').offsetHeight);
+                var grow = axis === 'x' ? e.key === 'ArrowLeft' : e.key === 'ArrowUp', shrink = axis === 'x' ? e.key === 'ArrowRight' : e.key === 'ArrowDown';
+                if (grow || shrink) { e.preventDefault(); setSize(cur + (grow ? step : -step)); }
+            });
+            el.addEventListener('dblclick', function () { delete layoutPrefs[axis === 'x' ? 'tree' : 'panel']; rootEl.style.removeProperty(axis === 'x' ? '--ce-tree-w' : '--ce-panel-h'); try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layoutPrefs)); } catch (e) { /* private mode */ } });
+        }
+        splitter($('#ce-split-v'), 'x'); splitter($('#ce-split-h'), 'y');
+        applyLayout();
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(applyLayout).observe(rootEl);
+
+        function toggleSidebar(force) { var t = $('#ce-tree'); var hide = force === undefined ? !t.classList.contains('is-hidden') : !force; t.classList.toggle('is-hidden', hide); $('#ce-split-v').hidden = hide; saveStateSoon(); }
         function togglePanel(force) {
             var p = $('#ce-panel'); var show = force === undefined ? p.hidden : force;
             p.hidden = !show;
+            $('#ce-split-h').hidden = !show;
             if (show) showPanelTab(panelTab);
             saveStateSoon();
         }
@@ -640,7 +675,6 @@
         }
         rootEl.querySelector('.ce-panel-tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-ptab]'); if (b) showPanelTab(b.dataset.ptab); });
 
-        // ---------------------------------------------------------------------------- menus + keys
         function fileMenu() { return [
             { label: 'New file', icon: 'file-plus', kbd: 'Ctrl+N', action: newFile },
             { label: 'Open file…', icon: 'folder', action: function () { ui.prompt({ title: 'Open file', label: 'File path', value: active && active.path ? active.path : '/documents/' }).then(function (p) { if (p) openFile(p); }); } },
@@ -667,8 +701,8 @@
             { label: 'File tree', icon: 'sidebar', kbd: 'Ctrl+B', action: function () { toggleSidebar(); } },
             { label: 'Problems & terminal', icon: 'terminal', kbd: 'Ctrl+J', action: function () { togglePanel(); } },
             { separator: true },
-            { label: 'Larger text', icon: 'plus', kbd: 'Ctrl+=', action: function () { setFont(fontSize + 1); } },
-            { label: 'Smaller text', icon: 'minus', kbd: 'Ctrl+-', action: function () { setFont(fontSize - 1); } }
+            { label: 'Larger text', icon: 'plus', kbd: 'Ctrl+=', action: function () { setFont(curFont() + 1); } },
+            { label: 'Smaller text', icon: 'minus', kbd: 'Ctrl+-', action: function () { setFont(curFont() - 1); } }
         ]; }
         function setFont(n) { fontSize = Math.max(10, Math.min(24, n)); localStorage.setItem('ce.font', String(fontSize)); applyFont(); }
 
@@ -687,12 +721,11 @@
             else if (k === 'f') openFind(false); else if (k === 'h') openFind(true); else if (k === 'g') promptGoto();
             else if (k === 'b') toggleSidebar(); else if (k === 'j') togglePanel();
             else if (k === 'w' && active) closeDoc(active); else if (k === 'n') newFile();
-            else if (e.key === '=' || e.key === '+') setFont(fontSize + 1); else if (e.key === '-') setFont(fontSize - 1);
+            else if (e.key === '=' || e.key === '+') setFont(curFont() + 1); else if (e.key === '-') setFont(curFont() - 1);
             else handled = false;
             if (handled) e.preventDefault();
         });
 
-        // ------------------------------------------------------------------------------- persistence
         function saveStateSoon() {
             clearTimeout(stateTimer);
             stateTimer = setTimeout(function () {
@@ -723,6 +756,7 @@
                 destroyed = true;
                 clearTimeout(stateTimer);
                 window.removeEventListener('beforeunload', beforeUnload);
+                document.removeEventListener('selectionchange', onSelectionChange);
                 if (termView) termView.destroy();
                 if (files) files.close();
             }

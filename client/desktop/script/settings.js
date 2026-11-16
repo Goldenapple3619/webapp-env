@@ -27,12 +27,12 @@
         if (win) { win.focus(); if (tab) win._show(tab); return; }
         var wm = document.getElementById('wm');
         var unsubscribe = null;
-        win = __window.new('Settings', [600, 520], wm, function () { if (unsubscribe) unsubscribe(); win = null; }, 30, { icon: 'settings' });
+        win = __window.new('Settings', [600, 520], wm, function () { if (unsubscribe) unsubscribe(); win = null; }, 30, { icon: 'settings', appId: 'settings', minSize: [420, 320] });
         var body = win.getBody();
         body.innerHTML =
             '<div class="st">' +
               '<nav class="st-tabs" role="tablist">' +
-                ['account', 'sessions', 'connection'].map(function (t) { return '<button class="btn btn--ghost" role="tab" data-tab="' + t + '" type="button">' + t.charAt(0).toUpperCase() + t.slice(1) + '</button>'; }).join('') +
+                ['account', 'appearance', 'sessions', 'connection'].map(function (t) { return '<button class="btn btn--ghost" role="tab" data-tab="' + t + '" type="button">' + t.charAt(0).toUpperCase() + t.slice(1) + '</button>'; }).join('') +
               '</nav>' +
               '<section class="st-pane" id="st-pane"></section>' +
             '</div>';
@@ -46,7 +46,7 @@
         function show(tab) {
             body.querySelectorAll('[data-tab]').forEach(function (b) { b.classList.toggle('is-active', b.dataset.tab === tab); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
             if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-            ({ account: account, sessions: sessions, connection: connection })[tab]();
+            ({ account: account, appearance: appearance, sessions: sessions, connection: connection })[tab]();
         }
         win._show = show;
         body.querySelector('.st-tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (b) show(b.dataset.tab); });
@@ -95,6 +95,25 @@
                 auth.request('/auth/sessions', { method: 'DELETE' }).then(function (r) { __ui.toast(r.revoked + ' session(s) signed out', 'ok'); load(); });
             });
             load();
+        }
+
+        function appearance() {
+            var saved = __theme.saved(), current = saved.preset || 'candy';
+            pane.innerHTML = '<h4>Theme</h4><div class="pr-swatches" id="st-themes"></div>' +
+                '<small class="muted">Candy is the original look. Pick one to apply it now.</small>' +
+                '<h4>Make it yours</h4><div class="st-card">' + icon('palette', 'icon--lg') + '<div class="grow"><b>Personalize</b><small>Wallpaper, taskbar, window frames, and the colours of each application</small></div>' +
+                '<button class="btn btn--primary" id="st-personalize" type="button">Open</button></div>';
+            var box = pane.querySelector('#st-themes');
+            __theme.PRESET_ORDER.forEach(function (id) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'pr-swatch'; b.setAttribute('aria-pressed', String(id === current));
+                b.innerHTML = '<i style="background:' + __theme.PRESETS[id].swatch + '"></i>' + esc(__theme.PRESETS[id].label);
+                b.addEventListener('click', function () {
+                    var next = Object.assign({}, __theme.saved(), { preset: id }); delete next.colors;    // a new base look starts from its own colours
+                    __theme.commit(next).then(function () { current = id; box.querySelectorAll('.pr-swatch').forEach(function (n) { n.setAttribute('aria-pressed', String(n === b)); }); }, function (err) { __ui.toast(__ui.errorText(err), 'error'); });
+                });
+                box.appendChild(b);
+            });
+            pane.querySelector('#st-personalize').addEventListener('click', function () { document.desktopState.openAppearance(); });
         }
 
         function connection() {

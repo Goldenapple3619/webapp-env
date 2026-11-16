@@ -1,0 +1,7 @@
+{
+    "styles": ["/style/common.css", "style/main.css"],
+    "UIs": ["UI/main.html"],
+    "scripts": ["script/main.js"],
+    "images": ["/assets/images/default_folder.png", "/assets/images/default_file.png"],
+    "JSONs": []
+}

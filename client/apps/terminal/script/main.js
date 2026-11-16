@@ -1,8 +1,3 @@
-/**
- * Terminal. createTerminalView() is the reusable part (the Code editor embeds it in its bottom
- * panel); setupApp.terminalEmulator wraps it into an app. The shell itself runs on the server and
- * is virtual: it can only touch the user's own files (see socket/src/common/shell.py).
- */
 (function () {
     var apps = __apps.getInstance();
 
@@ -46,7 +41,8 @@
         var out = root.querySelector('.tm-out'), input = root.querySelector('.tm-input'), promptEl = root.querySelector('.tm-prompt');
 
         var handle = null, cwd = '/', user = 'user', history = [], hIdx = 0, draft = '', destroyed = false;
-        var queue = Promise.resolve();
+        var queue = Promise.resolve(), epoch = 0, busy = 0;
+        var waiters = {}, early = {};     // running programs: job id -> resolver / result that arrived before its reply
 
         function prompt() {
             promptEl.textContent = '';
@@ -68,9 +64,30 @@
         }
         function scroll() { root.scrollTop = root.scrollHeight; }
 
+        function setBusy(on) {
+            busy = Math.max(0, busy + (on ? 1 : -1));
+            root.classList.toggle('is-busy', busy > 0);
+            var spin = promptEl.querySelector('.tm-spin');
+            if (busy > 0 && !spin) { spin = document.createElement('span'); spin.className = 'tm-spin'; spin.setAttribute('role', 'status'); spin.setAttribute('aria-label', 'A program is running'); promptEl.appendChild(spin); }
+            else if (busy === 0 && spin) spin.remove();
+        }
+        /** the result of a program that runs in the sandbox: it arrives as an event, possibly BEFORE the reply that announced it */
+        function waitFor(job) {
+            if (early[job]) { var r = early[job]; delete early[job]; return Promise.resolve(r); }
+            setBusy(true);
+            return new Promise(function (resolve) { waiters[job] = function (ev) { setBusy(false); resolve(ev); }; });
+        }
+
         function setup(h) {
             handle = h;
-            h.on('restore', function () { h.update('set_cwd', { path: cwd }).catch(function () { }); });
+            h.on('exec_done', function (ev) {
+                if (waiters[ev.job]) { var w = waiters[ev.job]; delete waiters[ev.job]; w(ev); }
+                else { early[ev.job] = ev; setTimeout(function () { delete early[ev.job]; }, 30000); }
+            });
+            h.on('restore', function () {   // the connection was lost: whatever was running there is gone
+                Object.keys(waiters).forEach(function (j) { var w = waiters[j]; delete waiters[j]; w({ output: '\x1b[31mconnection lost: the program was stopped\x1b[0m\n', status: 1, cwd: cwd, actions: [] }); });
+                h.update('set_cwd', { path: cwd }).catch(function () { });
+            });
             return h.fetch('prompt').then(function (p) { cwd = p.cwd; user = p.user; prompt(); });
         }
         var ready = opts.handle ? setup(opts.handle) : ws.app('terminalEmulator').then(function (h) { if (destroyed) { h.close(); return; } return setup(h); });
@@ -94,8 +111,12 @@
             if (!text.trim()) { scroll(); return; }
             if (history[history.length - 1] !== text) history.push(text);
             hIdx = history.length; draft = '';
+            var mine = epoch;
             queue = queue.then(function () {
+                if (mine !== epoch) return;      // Ctrl+C: lines typed ahead of the interrupted program are dropped, like in a real shell
                 return ready.then(function () { return handle.update('exec', { line: text }); }).then(function (r) {
+                    return r.pending ? waitFor(r.pending) : r;
+                }).then(function (r) {
                     if (r.clear) out.textContent = '';
                     if (r.output) print(r.output);
                     cwd = r.cwd; prompt();
@@ -127,6 +148,10 @@
             else if (e.key === 'ArrowDown') { e.preventDefault(); if (hIdx < history.length) { hIdx++; input.value = hIdx === history.length ? draft : history[hIdx]; } }
             else if (e.key === 'Tab') { e.preventDefault(); complete(); }
             else if (e.ctrlKey && e.key.toLowerCase() === 'l') { e.preventDefault(); out.textContent = ''; }
+            else if (e.ctrlKey && e.key.toLowerCase() === 'c' && !window.getSelection().toString() && busy > 0) {
+                e.preventDefault(); epoch++; line('^C', 'echo');
+                if (handle) handle.update('kill').catch(function () { });
+            }
             else if (e.ctrlKey && e.key.toLowerCase() === 'c') { if (!window.getSelection().toString()) { e.preventDefault(); line(promptEl.textContent + ' ' + input.value + '^C', 'echo'); input.value = ''; scroll(); } }
             else if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); input.value = ''; }
         });
@@ -135,6 +160,13 @@
         return {
             focus: function () { input.focus(); },
             run: run,
+            /** { cwd, run }: start in a folder, run a command (what a shortcut's <arg name="cwd"/"run"> hands over) */
+            intent: function (args) {
+                ready.then(function () {
+                    var go = args.cwd ? handle.update('set_cwd', { path: String(args.cwd) }).then(function (r) { cwd = r.cwd; prompt(); }) : Promise.resolve();
+                    return go.then(function () { if (args.run) run(String(args.run)); });
+                }).catch(function () { });
+            },
             element: root,
             getHandle: function () { return handle; },
             destroy: function () { destroyed = true; if (handle && !opts.handle) handle.close(); root.remove(); }
@@ -151,9 +183,10 @@
         parent.appendChild(holder);
         var view = createTerminalView(holder, { host: host });
         host.setTitle('');
+        if (options.args && (options.args.run || options.args.cwd)) view.intent(options.args);
         setTimeout(function () { if (view.getHandle() && onConnect) onConnect(view.getHandle().sessionId); view.focus(); }, 300);
         return {
-            handleIntent: function (args) { if (args && args.run) view.run(args.run); view.focus(); },
+            handleIntent: function (args) { view.intent(args || {}); view.focus(); },
             nonStandaloneDestroy: function () { view.destroy(); }
         };
     };

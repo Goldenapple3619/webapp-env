@@ -35,7 +35,6 @@
         var itemsEl = $('#xp-items'), pathEl = $('#xp-path'), mainEl = $('#xp-main'), emptyEl = $('#xp-empty');
         var searchEl = $('#xp-search'), sortEl = $('#xp-sort'), countEl = $('#xp-count'), uploadEl = $('#xp-upload');
 
-        // ------------------------------------------------------------------------------- state
         var path = '/', items = [], selected = new Set(), anchor = null;
         var back = [], forward = [];
         var clip = null;                                    // { mode: 'copy' | 'cut', paths: [] }
@@ -49,7 +48,6 @@
         function toast(msg, kind) { ui.toast(msg, kind); }
         function fail(err) { toast(ui.errorText(err), 'error'); }
 
-        // ------------------------------------------------------------------------- gateway session
         ws.app('explorer').then(function (h) {
             if (destroyed) return h.close();
             files = h;
@@ -73,7 +71,6 @@
             });
         }
 
-        // ------------------------------------------------------------------------------ navigation
         function start() {
             var a = options.args || {};
             var initial = a.path || (standalone && location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : '/');
@@ -130,7 +127,6 @@
             highlightPlaces();
         }
 
-        // -------------------------------------------------------------------------------- path bar
         function renderPath() {
             pathEl.classList.remove('is-editing');
             pathEl.textContent = '';
@@ -173,7 +169,6 @@
         }
         pathEl.addEventListener('click', function (e) { if (e.target === pathEl) editPath(); });
 
-        // ----------------------------------------------------------------------------------- places
         function loadPlaces() {
             if (!files) return;
             files.fetch('places').then(function (r) {
@@ -197,7 +192,6 @@
             rootEl.querySelectorAll('.xp-place').forEach(function (b) { b.classList.toggle('is-active', b.dataset.path === path); });
         }
 
-        // ---------------------------------------------------------------------------------- listing
         function visibleItems() {
             var list = items.filter(function (i) { return showHidden || !i.hidden; });
             if (query && !searching) list = list.filter(function (i) { return i.name.toLowerCase().indexOf(query) >= 0; });
@@ -211,8 +205,17 @@
         }
 
         var shown = [];
+        /** scroll the item into view inside the file list ONLY (scrollIntoView() also scrolls every scrollable ancestor) */
+        function reveal(el) {
+            if (!el) return;
+            var m = mainEl.getBoundingClientRect(), b = el.getBoundingClientRect();
+            if (b.top < m.top) mainEl.scrollTop -= m.top - b.top + 4;
+            else if (b.bottom > m.bottom) mainEl.scrollTop += b.bottom - m.bottom + 4;
+        }
+
         function render(resetScroll) {
             shown = visibleItems();
+            shortcutBudget = 0;
             var top = mainEl.scrollTop;
             itemsEl.textContent = '';
             itemsEl.classList.toggle('is-list', view === 'list');
@@ -223,7 +226,7 @@
             emptyEl.textContent = searching ? 'No results.' : query ? 'Nothing matches your filter.' : 'This folder is empty. Drop files here to upload.';
             mainEl.scrollTop = resetScroll ? 0 : top;
             updateStatus();
-            var sel = itemsEl.querySelector('.is-selected'); if (sel && resetScroll) sel.scrollIntoView({ block: 'nearest' });
+            var sel = itemsEl.querySelector('.is-selected'); if (sel && resetScroll) reveal(sel);
         }
 
         function buildItem(it) {
@@ -249,8 +252,25 @@
             el.setAttribute('aria-selected', String(selected.has(it.path)));
             el.classList.toggle('is-cut', !!clip && clip.mode === 'cut' && clip.paths.indexOf(it.path) >= 0);
             el.classList.toggle('is-hidden-file', it.hidden);
+            if (it.type === 'file' && it.ext === 'shc') { el.classList.add('is-shortcut'); decorateShortcut(el, it); }
             if (it.type === 'folder') wireDrop(el, function () { return it.path; });
             return el;
+        }
+
+        // a .shc file is a shortcut: show its own icon (read from the file, a few at a time) and the little arrow badge
+        var shortcutBudget = 0;
+        function decorateShortcut(el, it) {
+            if (!window.__shortcuts || shortcutBudget > 60) return;
+            shortcutBudget++;
+            __shortcuts.read(it.path).then(function (r) {
+                if (!r.shortcut || !el.isConnected) { if (r.error) el.title = it.name + ' (broken shortcut)'; return; }
+                apps.list().then(function (list) {
+                    var ic = __shortcuts.iconOf(r.shortcut, list), img = el.querySelector('.xp-icon__img');
+                    if (ic.src) { img.classList.remove('is-thumb'); img.src = ic.src; }
+                    else { img.style.visibility = 'hidden'; var holder = el.querySelector('.xp-icon'); var svg = document.createElement('span'); svg.className = 'xp-icon__svg'; svg.innerHTML = ui.icon(ic.name); holder.appendChild(svg); }
+                    el.title = it.name + ' → ' + (r.shortcut.name || '');
+                });
+            }, function () { });
         }
 
         function updateStatus() {
@@ -277,7 +297,6 @@
             updateStatus();
         }
 
-        // -------------------------------------------------------------------------------- selection
         itemsEl.addEventListener('click', function (e) {
             var el = e.target.closest('.xp-item');
             if (!el) return;
@@ -297,7 +316,21 @@
             var el = e.target.closest('.xp-item');
             if (el) openItem(shown.find(function (i) { return i.path === el.dataset.path; }));
         });
-        mainEl.addEventListener('click', function (e) { if (e.target === mainEl || e.target === itemsEl || e.target === emptyEl) setSelected([]); });
+        mainEl.addEventListener('click', function (e) {
+            if ((e.target === mainEl || e.target === itemsEl || e.target === emptyEl) && !(e.ctrlKey || e.metaKey || e.shiftKey)) setSelected([]);
+        });
+
+        // the rubber band: drag on empty space to select what the rectangle touches (Ctrl toggles, Shift adds)
+        var bandInitial = new Set();
+        __select.attach({
+            surface: mainEl, itemSelector: '.xp-item', itemsRoot: itemsEl,
+            isBackground: function (e) { return !e.target.closest('.xp-item') && !e.target.closest('.xp-drop'); },
+            onStart: function () { bandInitial = new Set(selected); rootEl.focus({ preventScroll: true }); },
+            onChange: function (hits, mode) {
+                var set = __select.combine(bandInitial, new Set(hits.map(function (el) { return el.dataset.path; })), mode);
+                setSelected(Array.from(set), true);
+            }
+        });
 
         function openItem(it) {
             if (!it) return;
@@ -305,7 +338,6 @@
             apps.openPath(it.path, 'file');
         }
 
-        // ------------------------------------------------------------------------------ operations
         function newEntry(kind) {
             if (searching) return;
             ui.prompt({ title: kind === 'mkdir' ? 'New folder' : 'New file', label: 'Name', value: kind === 'mkdir' ? 'New folder' : 'New file.txt', selectBase: kind === 'mkfile',
@@ -317,7 +349,7 @@
             });
         }
         function reloadThenSelect(p) {
-            files.fetch('listdir', { path: path }).then(function (r) { setItems(r.content); selected = new Set([p]); anchor = p; render(false); var el = itemsEl.querySelector('.is-selected'); if (el) el.scrollIntoView({ block: 'nearest' }); });
+            files.fetch('listdir', { path: path }).then(function (r) { setItems(r.content); selected = new Set([p]); anchor = p; render(false); reveal(itemsEl.querySelector('.is-selected')); });
         }
 
         function renameSel() {
@@ -366,17 +398,20 @@
         }
 
         function showProperties() {
-            var s = selection();
-            var it = s.length ? s[0] : null;
-            var rows = it ? [['Name', it.name], ['Location', dirname(it.path)], ['Type', it.type === 'folder' ? 'Folder' : (it.ext ? it.ext.toUpperCase() + ' file' : 'File')],
-                ['Size', it.type === 'folder' ? '-' : fmtSize(it.size) + ' (' + it.size.toLocaleString() + ' bytes)'], ['Modified', fmtDate(it.modification_date)], ['Created', fmtDate(it.creation_date)]]
-                : [['Location', path], ['Items', String(items.length)]];
-            ui.dialog({ title: it ? 'Properties' : 'Folder properties', body: '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px">' +
-                rows.map(function (r) { return '<span class="muted">' + ui.esc(r[0]) + '</span><span style="word-break:break-all">' + ui.esc(r[1]) + '</span>'; }).join('') + '</div>',
-                actions: [{ label: 'Close', value: true, primary: true }] });
+            var sel = selection();
+            if (sel.length === 1) {
+                if (sel[0].type === 'file' && sel[0].ext === 'shc' && window.__shortcuts) return __shortcuts.openProperties(sel[0].path).catch(fail);
+                return __props.openFileInfo(sel[0]);
+            }
+            if (sel.length > 1) {
+                var bytes = sel.reduce(function (a, i) { return a + (i.type === 'file' ? i.size : 0); }, 0);
+                return __props.open({ id: 'sel:' + path, title: sel.length + ' items', subtitle: path, icon: 'folder', size: [420, 260], minSize: [320, 200], readonly: true,
+                    tabs: [{ id: 'g', label: 'General', fields: [{ type: 'info', label: 'Folders', value: String(sel.filter(function (i) { return i.type === 'folder'; }).length) },
+                        { type: 'info', label: 'Files', value: String(sel.filter(function (i) { return i.type === 'file'; }).length) }, { type: 'info', label: 'Total size', value: fmtSize(bytes) }] }] });
+            }
+            files.fetch('stat', { path: path }).then(function (r) { __props.openFileInfo(r.stat, { fields: [{ type: 'info', label: 'Items', value: String(items.length) }] }); }, fail);
         }
 
-        // ------------------------------------------------------------------------------ uploads
         var uploadsActive = 0;
         function setUploadStatus(text, ratio) {
             uploadEl.innerHTML = text ? ui.esc(text) + (ratio != null ? '<span class="xp-progress"><i style="width:' + Math.round(ratio * 100) + '%"></i></span>' : '') : '';
@@ -461,7 +496,6 @@
             return settle();
         }
 
-        // ------------------------------------------------------------------------ drag and drop
         var hasFiles = function (e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0; };
         var dropEl = $('#xp-drop'), dragDepth = 0;
 
@@ -502,7 +536,6 @@
             });
         }
 
-        // --------------------------------------------------------------------------- context menus
         function audioSelection() { var s = selection(); return s.length && s.every(isAudio) ? s : null; }
 
         function playlistMenu(audio) {
@@ -581,7 +614,6 @@
 
         function toggleHidden() { showHidden = !showHidden; localStorage.setItem('xp.hidden', showHidden ? '1' : '0'); render(false); }
 
-        // ----------------------------------------------------------------------------- toolbar + keys
         rootEl.addEventListener('click', function (e) {
             var b = e.target.closest('[data-act]');
             if (!b || b.disabled) return;
@@ -651,7 +683,7 @@
                 else setSelected([shown[to].path]);
                 anchor = shown[to].path;
                 var el = Array.prototype.find.call(itemsEl.children, function (n) { return n.dataset.path === anchor; });
-                if (el) el.scrollIntoView({ block: 'nearest' });
+                reveal(el);
             }
         });
         rootEl.addEventListener('pointerdown', function (e) { if (!e.target.closest('input, select, textarea, button')) rootEl.focus({ preventScroll: true }); });

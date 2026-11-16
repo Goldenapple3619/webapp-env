@@ -1,41 +1,24 @@
-/**
- * __ws - websocket client of the apps gateway.
- *
- * Kept from the first version: __ws.new(...) -> instance with open / close / send / setRoute /
- * setReconnect / connectApp / closeApp / setReady / getReady / onReady.
- *
- * New:
- *  - the instance authenticates itself (connect + access token) and re-authenticates silently each
- *    time the access token is refreshed, so a socket outlives many 15-minute tokens,
- *  - request(action, data) -> Promise, correlated by a request id the server echoes back,
- *  - app(name) -> handle { fetch(), update(), on(), close() } that transparently restarts its server
- *    side session after a reconnect and receives pushed events (e.g. "fs_changed"),
- *  - heartbeat (+ latency measurement), exponential backoff reconnect, status events.
- *
- * `urls` are the gateways returned by /api/wsockets, tried in priority order.
- */
 var __ws = (() => {
     function init(urls, options) {
         options = options || {};
-        var getToken = options.getToken;                    // () => Promise<string>
+        var getToken = options.getToken;
         var socket = null;
         var status = { state: 'idle', latency: null, attempts: 0 };
         var statusListeners = [];
         var ready = false, readyCallbacks = [];
-        var pending = {};                                   // rid -> { resolve, reject, timer }
+        var pending = {};
         var rid = 0, ident = 0;
-        var routes = {};                                    // action -> callback  (setRoute)
+        var routes = {};
         var reconnectCallback = null;
-        var handles = [];                                   // live app handles
+        var handles = [];
         var closedByUs = false, reconnectTimer = null, heartbeatTimer = null, opening = null;
-        var legacySessions = {};                            // sid -> { route: callback }   (connectApp)
+        var legacySessions = {};
 
         function setStatus(patch) {
             Object.assign(status, patch);
             statusListeners.slice().forEach(function (cb) { try { cb(Object.assign({}, status)); } catch (e) { console.error(e); } });
         }
 
-        // ------------------------------------------------------------------------------ transport
         function openSocket(url) {
             return new Promise(function (resolve, reject) {
                 var ws;
@@ -93,7 +76,7 @@ var __ws = (() => {
             }
             var cb = routes[msg.action];
             if (cb) { cb(msg); return; }
-            // legacy per-session routes: "<route>_<sessionId>"
+
             var cut = msg.action.lastIndexOf('_');
             if (cut > 0 && legacySessions[msg.action.slice(cut + 1)]) {
                 var r = legacySessions[msg.action.slice(cut + 1)][msg.action.slice(0, cut)];
@@ -107,7 +90,6 @@ var __ws = (() => {
             return true;
         }
 
-        /** Sends {action, data} and resolves with the matching reply. */
         function request(action, data, opts) {
             opts = opts || {};
             return new Promise(function (resolve, reject) {
@@ -121,7 +103,6 @@ var __ws = (() => {
             });
         }
 
-        // ------------------------------------------------------------------------------ auth + connect
         function authenticate() {
             return getToken().then(function (token) {
                 return request('connect', { token: token }, { timeout: 10000 });
@@ -131,7 +112,6 @@ var __ws = (() => {
             });
         }
 
-        /** Renews the identity on the open socket (called whenever the access token changed). */
         function reauth() {
             if (!socket || !ready) return Promise.resolve();
             return authenticate().catch(function (e) { if (e.auth && options.onSessionEnded) options.onSessionEnded(e.code); });
@@ -192,8 +172,6 @@ var __ws = (() => {
             reconnectTimer = setTimeout(attemptReconnect, delay);
         }
 
-        // Something says the connection is probably usable again (the tab woke up, the network came back): try
-        // right now instead of waiting for the backoff timer. (This used to start a NEW backoff, i.e. wait longer.)
         function reconnectNow() {
             if (closedByUs || status.state !== 'closed') return;
             clearTimeout(reconnectTimer);
@@ -214,7 +192,7 @@ var __ws = (() => {
                     if (socket) try { socket.close(); } catch (e) { /* triggers reconnect */ }
                 });
             }, 25000);
-            // first measurement right away
+
             var t1 = performance.now();
             request('ping', {}).then(function () { setStatus({ latency: Math.round(performance.now() - t1) }); }).catch(function () {});
         }
@@ -226,7 +204,6 @@ var __ws = (() => {
             return Promise.all(jobs).then(function () { if (reconnectCallback) reconnectCallback(); });
         }
 
-        // ------------------------------------------------------------------------------------- apps
         function whenReady() {
             if (ready) return Promise.resolve();
             return new Promise(function (resolve) { readyCallbacks.push(resolve); });
@@ -246,12 +223,6 @@ var __ws = (() => {
             });
         }
 
-        /**
-         * const files = await ws.app('explorer');
-         * const listing = await files.fetch('listdir', { path: '/' });
-         * await files.update('mkdir', { path: '/', name: 'x' });
-         * files.on('fs_changed', data => ...); files.on('restore', ...); files.close();
-         */
         function app(name) {
             var h = {
                 name: name, sessionId: null, closed: false, _l: {},
@@ -286,7 +257,6 @@ var __ws = (() => {
             });
         }
 
-        // ---------------------------------------------------------------- legacy API (first version)
         function connectApp(appName, appRoutes, onOpen, onRestore, onError, onErrorRestore) {
             var first = true;
             return app(appName).then(function (h) {
@@ -329,6 +299,5 @@ var __ws = (() => {
         });
     }
 
-    /** __ws.new(urls | url, { getToken, onSessionEnded }) */
     return ({ new: function (urls, options) { return init(Array.isArray(urls) ? urls : [urls], options); } });
 })();

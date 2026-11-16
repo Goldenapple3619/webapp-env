@@ -1,13 +1,3 @@
-/**
- * __renderer   - load / error screen glue.
- * __preLoader  - script helpers.
- * __appHandler - loads an app's manifest (index.json) and builds DOM from its UI templates.
- *
- * Same names and call shapes as the first version. What changed underneath: loading is parallel
- * (see lloader.loadManifest), the readiness polling loop is a promise, and a second manifest can be
- * loaded on demand with loadApp(): that is how the desktop opens an app without having downloaded
- * every app's code at start-up.
- */
 var __renderer = (() => {
     var instance = null;
 
@@ -35,7 +25,6 @@ var __preLoader = (() => {
     return ({
         invokeScript: function (scriptUrl) { return __lloader.getInstance().loadScript(scriptUrl); },
         invokeScripts: function (urls) { return Promise.all(urls.map(function (u) { return __lloader.getInstance().loadScript(u); })); },
-        /** kept for compatibility: loads in order, one after the other (the loader no longer needs it) */
         listCallbackAlgorithm: function (list, callback, onFinish, onError) {
             var i = 0;
             (function next() {
@@ -59,9 +48,8 @@ var __appHandler = (() => {
             error = err && err.message ? err : { status: false, message: 'Failed to load ' + toPreload };
             throw error;
         });
-        ready.catch(function () { /* surfaced through onReady */ });
+        ready.catch(function () {});
 
-        /** replaces "${KEY}" by a value in every text node (replacerText) or in innerHTML (replacerHTML) */
         function applyReplacers(root, replacerText, replacerHTML) {
             replacerHTML = replacerHTML || {};
             replacerText = replacerText || {};
@@ -77,7 +65,6 @@ var __appHandler = (() => {
                 while ((node = walker.nextNode())) {
                     textKeys.forEach(function (k) { if (node.nodeValue.indexOf(k) >= 0) node.nodeValue = node.nodeValue.split(k).join(replacerText[k]); });
                 }
-                // attributes too (e.g. title="${NAME}", alt, placeholder)
                 root.querySelectorAll('*').forEach(function (n) {
                     Array.prototype.forEach.call(n.attributes, function (a) {
                         textKeys.forEach(function (k) { if (a.value.indexOf(k) >= 0) n.setAttribute(a.name, a.value.split(k).join(replacerText[k])); });
@@ -102,7 +89,6 @@ var __appHandler = (() => {
             return last;
         }
 
-        /** like build() but returns the cloned container (used for embedded sub-views) */
         function buildStandalone(toBuild, replacerText, replacerHTML, imagesAsset) {
             var holder = document.createElement('div');
             holder.style.width = '100%';
@@ -117,12 +103,10 @@ var __appHandler = (() => {
             getError: function () { return error; },
             getLibrary: function () { return library; },
             setTitle: function (title) { document.title = title; },
-            /** onReady(callback, load, error): load(info) is called for every loaded resource */
             onReady: function (callback, load, errorCallback) {
                 if (load) subscribers.push({ load: load });
                 ready.then(function () { callback(); }, function (err) { if (errorCallback) errorCallback(err); });
             },
-            /** Loads another app's manifest (idempotent). Resolves when all its files are ready. */
             loadApp: function (manifestUrl) { return library.loadManifest(manifestUrl); },
             build: build,
             buildStandalone: buildStandalone

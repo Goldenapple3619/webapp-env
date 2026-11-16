@@ -13,6 +13,9 @@ from ..network.wsserver import AppError
 
 MAX_TEXT_BYTES = 2 * 1024 * 1024
 PROTECTED_TOP_LEVEL = {"documents", "desktop", "music", "videos", "downloads", "pictures"}
+# "/virtual" is the read-only mount of built-in and sandboxed tools (see virtualfs.py): it is not a folder of the user's
+# files, so nothing may be created, renamed or moved onto that name at the top level, and nothing can be written below it.
+VIRTUAL_NAME = "virtual"
 
 class FsError(AppError):
     pass
@@ -27,6 +30,11 @@ def valid_name(name) -> bool:
         and name not in (".", "..")
         and not any(c in name for c in ("/", "\\", "\0"))
     )
+
+
+def is_virtual(relative) -> bool:
+    clean = normalize(relative)
+    return clean == "/" + VIRTUAL_NAME or clean.startswith("/" + VIRTUAL_NAME + "/")
 
 
 def normalize(relative) -> str:
@@ -67,6 +75,15 @@ class UserFS:
             raise FsError("not_found")
         return target
 
+    @staticmethod
+    def _writable(relative) -> None:
+        if is_virtual(relative):
+            raise FsError("read_only", "/virtual is a read-only mount")
+
+    def _reserved(self, parent_abs: str, name: str) -> None:
+        if parent_abs == self.root and name == VIRTUAL_NAME:
+            raise FsError("reserved_name", "'virtual' is reserved for the tools mount")
+
     def _guard_top_level(self, target: str) -> None:
         if target == self.root:
             raise FsError("forbidden", "the root cannot be modified")
@@ -85,6 +102,7 @@ class UserFS:
             "ext": "" if is_dir else os.path.splitext(name)[1].lower().lstrip("."),
             "size": 0 if is_dir else st.st_size,
             "hidden": name.startswith("."),
+            "executable": (not is_dir) and bool(st.st_mode & 0o111),
             "creation_date": st.st_ctime,
             "modification_date": st.st_mtime,
         }
@@ -156,11 +174,13 @@ class UserFS:
         return {"type": "search", "content": found, "truncated": False}
 
     def _new_child(self, parent_rel, name) -> str:
+        self._writable(parent_rel)
         if not valid_name(name):
             raise FsError("invalid_name")
         parent = self._existing(parent_rel)
         if not os.path.isdir(parent):
             raise FsError("not_dir")
+        self._reserved(parent, name)
         target = join_path(parent, name)
         if os.path.lexists(target):
             raise FsError("exists")
@@ -178,10 +198,12 @@ class UserFS:
         return self.rel(target)
 
     def rename(self, relative, new_name) -> str:
+        self._writable(relative)
         target = self._existing(relative)
         self._guard_top_level(target)
         if not valid_name(new_name):
             raise FsError("invalid_name")
+        self._reserved(os.path.dirname(target), new_name)
         dest = join_path(os.path.dirname(target), new_name)
         if os.path.lexists(dest) and os.path.realpath(dest) != target:
             raise FsError("exists")
@@ -189,6 +211,7 @@ class UserFS:
         return self.rel(dest)
 
     def _dest_dir(self, dest_rel) -> str:
+        self._writable(dest_rel)
         dest = self._existing(dest_rel)
         if not os.path.isdir(dest):
             raise FsError("not_dir")
@@ -202,6 +225,7 @@ class UserFS:
             self._guard_top_level(source)
             if dest == source or dest.startswith(source + os.sep):
                 raise FsError("invalid_move", "cannot move a folder into itself")
+            self._reserved(dest, os.path.basename(source))
             target = join_path(dest, os.path.basename(source))
             if os.path.lexists(target):
                 if os.path.realpath(target) == source:
@@ -222,6 +246,7 @@ class UserFS:
             if os.path.isdir(source) and (dest == source or dest.startswith(source + os.sep)):
                 raise FsError("invalid_copy", "cannot copy a folder into itself")
             name = os.path.basename(source)
+            self._reserved(dest, name)
             target, n = join_path(dest, name), 0
             while os.path.lexists(target):
                 n += 1
@@ -235,6 +260,7 @@ class UserFS:
         return out
 
     def delete(self, relative) -> str:
+        self._writable(relative)
         target = self._existing(relative)
         self._guard_top_level(target)
         if os.path.isdir(target) and not os.path.islink(target):
@@ -249,6 +275,7 @@ class UserFS:
         data = (content.replace("\n", "\r\n") if eol == "crlf" else content).encode("utf-8")
         if len(data) > MAX_TEXT_BYTES * 4:
             raise FsError("too_large")
+        self._writable(relative)
         target = self.resolve(relative)
         if os.path.isdir(target):
             raise FsError("is_dir")
@@ -277,3 +304,22 @@ class UserFS:
 
     def resolve_rel(self, relative) -> str:
         return normalize(relative)
+
+    def peek(self, relative, size: int = 256) -> bytes:
+        """First bytes of a regular file (to recognise `#!` scripts and ELF binaries without reading all of it)."""
+        target = self._existing(relative)
+        if os.path.isdir(target):
+            raise FsError("is_dir")
+        with open(target, "rb") as fp:
+            return fp.read(size)
+
+    def chmod(self, relative, executable: bool) -> str:
+        """The only permission bit users can change: may this file be run? (r/w for the owner is always kept)."""
+        self._writable(relative)
+        target = self._existing(relative)
+        if os.path.isdir(target):
+            raise FsError("is_dir")
+        mode = os.stat(target).st_mode & 0o777
+        mode = (mode | 0o111) if executable else (mode & ~0o111)
+        os.chmod(target, mode | 0o600)
+        return self.rel(target)

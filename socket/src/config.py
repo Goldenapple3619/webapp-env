@@ -72,6 +72,14 @@ class Config:
     pre_auth_max_bytes = _int("WS_PRE_AUTH_MAX_BYTES", 16 * 1024, 256, 1024 * 1024)
     outbox_size = _int("WS_OUTBOX_SIZE", 256, 8, 100000)
 
+    # Real tools (gcc, python...) run in a separate, sandboxed "runner" service, never inside this process: this process
+    # holds the JWT secret and the database password. Leave RUNNER_URL empty and the terminal simply has no real tools.
+    runner_url = environ.get("RUNNER_URL", "").strip().rstrip("/")
+    runner_token = environ.get("RUNNER_TOKEN", "")
+    exec_workers = _int("EXEC_WORKERS", 8, 1, 256)        # commands running at the same time on this gateway
+    exec_per_user = _int("EXEC_PER_USER", 3, 1, 32)       # ...of which at most this many for one user
+    exec_audit_days = _int("EXEC_AUDIT_DAYS", 30, 1, 3650)
+
     @classmethod
     def validate(cls) -> None:
         problems = list(_problems)
@@ -80,6 +88,12 @@ class Config:
         for key, variable in (("db_name", "POSTGRES_DB"), ("db_user", "POSTGRES_USER"), ("db_password", "POSTGRES_PASSWORD")):
             if not getattr(cls, key):
                 problems.append(f"{variable} is missing")
+        if cls.runner_url:
+            parts = urlsplit(cls.runner_url)
+            if parts.scheme not in ("http", "https") or not parts.hostname:
+                problems.append(f"RUNNER_URL '{cls.runner_url}' is not an http(s) URL")
+            if len(cls.runner_token) < 32:
+                problems.append("RUNNER_TOKEN must be set (same value as the runner, >= 32 characters) when RUNNER_URL is")
         if cls.max_connections_per_user < 1:
             problems.append("WS_MAX_CONNECTIONS_PER_USER must be at least 1")
         if problems:

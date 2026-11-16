@@ -1,16 +1,3 @@
-/**
- * __apps - application registry and launcher.
- *
- * One place knows which apps exist (apps/registry.json), which file types they open, and how to
- * start one from another app:
- *   __apps.open('code', { path: '/documents/a.txt' })
- *   __apps.openPath('/music/a.mp3', 'file')        // picks the app from the file type
- *
- * Who actually opens the app depends on where we run:
- *   - the virtual desktop registers itself with setLauncher(): a new window in the same page,
- *   - the native suite (window.nativeShell, injected by the Electron preload): a real OS window,
- *   - a plain browser tab: the app's standalone page in a new tab.
- */
 var __apps = (() => {
     var instance = null;
 
@@ -26,7 +13,6 @@ var __apps = (() => {
 
         function ext(path) { var m = /\.([^./]+)$/.exec(path || ''); return m ? m[1].toLowerCase() : ''; }
 
-        /** which app should open this path? */
         function associate(path, type) {
             return load().then(function (list) {
                 if (type === 'folder') return list.filter(function (a) { return a.handles && a.handles.folder; })[0];
@@ -40,12 +26,12 @@ var __apps = (() => {
             try { return JSON.parse(new URLSearchParams(location.search).get('args') || '{}'); } catch (e) { return {}; }
         }
 
-        function open(id, args) {
+        function open(id, args, opts) {
             args = args || {};
             return find(id).then(function (app) {
                 if (!app) throw new Error('unknown app ' + id);
-                if (launcher) return launcher(app, args);
-                if (app.builtin) { // no window system here: let the browser show the file itself
+                if (launcher) return launcher(app, args, opts || {});
+                if (app.builtin) {
                     if (args.path) window.open(__auth.getInstance().fileUrl(args.path), '_blank', 'noopener');
                     return null;
                 }
@@ -56,6 +42,7 @@ var __apps = (() => {
         }
 
         function openPath(path, type) {
+            if (type !== 'folder' && ext(path) === 'shc' && window.__shortcuts) return __shortcuts.run(path);   // a shortcut file runs
             return associate(path, type).then(function (app) {
                 if (!app) return null;
                 var args = app.id === 'music' ? { play: path } : { path: path };

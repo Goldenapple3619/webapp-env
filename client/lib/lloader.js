@@ -1,16 +1,3 @@
-/**
- * __lloader - resource loader (scripts, styles, images, UI templates, JSON, app manifests).
- *
- * Same public surface as before (invokeCSS, loadImageAsset, loadUi, request, loadJSON, get*), but:
- *  - everything is cached by *normalised URL* and de-duplicated (two callers asking for the same
- *    template share one request; the old code fetched it twice and discarded one),
- *  - a manifest (index.json) is loaded in PARALLEL instead of one file after the other; scripts are
- *    still executed in manifest order (dynamic scripts with async=false download in parallel and
- *    execute in insertion order),
- *  - when the build step injected window.__V (content hashes) URLs get "?v=<hash>" and can be cached
- *    forever by nginx,
- *  - getInstance() really is a singleton now (it used to create a new empty cache on every call).
- */
 var __lloader = (() => {
     var instance = null;
 
@@ -20,13 +7,11 @@ var __lloader = (() => {
         var JSONs = {};
         var pending = { ui: {}, json: {}, image: {}, css: {}, script: {}, manifest: {} };
 
-        /** "UI/main.html" -> "/apps/x/UI/main.html"; keeps absolute http(s) URLs of other origins. */
         function abs(url, base) {
             var u = new URL(url, new URL(base || location.href, location.href));
             return u.origin === location.origin ? u.pathname + u.search : u.href;
         }
 
-        /** Adds the build hash, if any, so the browser can cache the file forever. */
         function versioned(url) {
             var map = window.__V;
             if (!map || /^https?:/i.test(url)) return url;
@@ -43,7 +28,6 @@ var __lloader = (() => {
             return pending[bucket][key];
         }
 
-        /** fetch() wrapped in the old XHR-shaped result: { request: { status, responseText } }. */
         function request(url, body, method, headers) {
             method = method || 'GET';
             return fetch(url, { method: method, headers: headers || {}, body: body, credentials: 'same-origin' }).then(function (res) {
@@ -64,7 +48,6 @@ var __lloader = (() => {
             var key = abs(cssUrl);
             return once('css', key, function () {
                 return new Promise(function (resolve, reject) {
-                    // already linked statically by the page (common.css): nothing to load
                     var existing = Array.prototype.some.call(document.querySelectorAll('link[rel="stylesheet"]'), function (l) {
                         return new URL(l.getAttribute('href'), location.href).pathname === key.split('?')[0];
                     });
@@ -88,7 +71,7 @@ var __lloader = (() => {
                     });
                     if (existing) return resolve({ status: true, loaded: key, type: 'script' });
                     var script = document.createElement('script');
-                    script.async = false; // keep insertion order while downloading in parallel
+                    script.async = false;
                     script.src = versioned(key);
                     script.addEventListener('load', function () { resolve({ status: true, loaded: key, type: 'script' }); });
                     script.addEventListener('error', function () { reject({ status: false, message: 'Failed to load script ' + key }); });
@@ -136,11 +119,6 @@ var __lloader = (() => {
             });
         }
 
-        /**
-         * Loads everything an app lists in its index.json. Relative entries are resolved against the
-         * manifest's own folder, so the same manifest works for the standalone page and when the
-         * desktop loads the app lazily the first time it is opened.
-         */
         function loadManifest(manifestUrl, onProgress) {
             var base = abs(manifestUrl);
             return once('manifest', base, function () {

@@ -3,4 +3,6 @@
     <app src="./apps/musicApp.py" className="MusicApp">music</app>
     <app src="./apps/codeApp.py" className="CodeApp">codeEditor</app>
     <app src="./apps/terminalApp.py" className="TerminalApp">terminalEmulator</app>
+    <app src="./apps/desktopApp.py" className="DesktopApp">desktop</app>
+    <app src="./apps/browserApp.py" className="BrowserApp">browser</app>
 </applist>

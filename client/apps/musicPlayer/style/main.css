@@ -1,5 +1,6 @@
 /* Music player - scoped under .mp */
-.mp { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--bg-secondary), var(--win-body-background) 55%); outline: none; }
+.mp { --mp-accent: var(--accent); --mp-bg: var(--bg-secondary);
+    position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: linear-gradient(180deg, var(--mp-bg), var(--win-body-background) 55%); outline: none; }
 .mp-player { height: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 22px 16px; }
 .mp-cover { flex: 1 1 auto; min-height: 0; width: min(100%, 360px); max-height: 360px; aspect-ratio: 1; padding: 8px; display: grid; place-items: center; background: var(--surface); }
 .mp-cover img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; background: var(--bg-quaduary); }
@@ -16,10 +17,10 @@
 .mp [aria-pressed="true"] { background: var(--accent-2); color: var(--accent-ink); }
 
 /* range inputs, same pink thumb as the window frame */
-.mp input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 8px; border-radius: 99px; background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--surface) var(--fill, 0%)); border: 2px solid var(--border-quaduary); outline: none; cursor: pointer; }
+.mp input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 8px; border-radius: 99px; background: linear-gradient(to right, var(--mp-accent) var(--fill, 0%), var(--surface) var(--fill, 0%)); border: 2px solid var(--border-quaduary); outline: none; cursor: pointer; }
 .mp input[type=range]:focus-visible { box-shadow: var(--focus-ring); }
-.mp input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
-.mp input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+.mp input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--hover-strong); border: 3px solid var(--mp-accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+.mp input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--hover-strong); border: 3px solid var(--mp-accent); }
 .mp input[type=range]:disabled { opacity: .5; cursor: default; }
 
 /* library / playlists */
@@ -32,14 +33,14 @@
 .mp-pl { border: 2px solid var(--border-quaduary); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .mp-pl__head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--bg-terciary); }
 .mp-pl__head .name { flex: 1; min-width: 0; font-weight: 600; background: transparent; border: 0; text-align: left; padding: 4px; border-radius: 8px; }
-.mp-pl__head .name:hover { background: rgba(255, 255, 255, .5); }
+.mp-pl__head .name:hover { background: var(--hover); }
 .mp-pl__head small { color: var(--ink-soft); }
 .mp-songs { display: none; padding: 4px; }
 .mp-pl.is-open .mp-songs { display: block; }
 .mp-pl.is-open .chev { transform: rotate(90deg); }
 .mp-song { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 8px; }
 .mp-song:hover { background: var(--surface-2); }
-.mp-song.is-current { background: var(--selection); box-shadow: inset 3px 0 0 var(--accent); }
+.mp-song.is-current { background: var(--selection); box-shadow: inset 3px 0 0 var(--mp-accent); }
 .mp-song.is-missing .title { text-decoration: line-through; color: var(--ink-faint); }
 .mp-song .idx { width: 22px; text-align: center; color: var(--ink-faint); font-size: 12px; flex: none; }
 .mp-song .title { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; padding: 4px; cursor: pointer; }
@@ -50,4 +51,7 @@
 .mp-pick label { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
 .mp-pick label:hover { background: var(--surface-2); }
 
-@media (max-height: 520px) { .mp-cover { display: none; } }
+/* container queries: the player adapts to its WINDOW */
+@container win (max-height: 520px) { .mp-cover { display: none; } }
+@container win (max-width: 360px) { .mp-player { padding: 12px 12px 10px; gap: 10px; } .mp-volume { flex-basis: 110px; } .mp-info h2 { font-size: 18px; } }
+@container win (max-width: 300px) { .mp-bottom { flex-wrap: wrap; justify-content: center; } }

@@ -91,6 +91,7 @@ def main() -> int:
     listener = PgListener(database.dsn_kwargs(), {
         "fs_events": lambda p: S.publish(int(p["user"]), "fs", {
             "op": p.get("op", "upload"), "dirs": p.get("dirs", []), "files": p.get("files", []), "resync": bool(p.get("resync"))}),
+        "desktop_events": lambda p: S.publish(int(p["user"]), "desktop", {"kind": p.get("kind", ""), "origin": p.get("origin", "")}),
         "session_events": lambda p: S.kick_session(str(p["sid"])) if p.get("event") == "revoked" else None,
     },
         on_resync=lambda: S.publish_all("fs", {"op": "resync", "dirs": [], "files": [], "resync": True}))
@@ -99,9 +100,13 @@ def main() -> int:
     stop = Event()
 
     def sweeper():
+        ticks = 0
         while not stop.wait(5):
+            ticks += 1
             try:
                 S.sweep(hard_expiry_seconds=Config.hard_expiry_seconds, auth_timeout_seconds=Config.auth_timeout_seconds)
+                if ticks % 720 == 1:  # hourly: forget old audit rows of sandboxed program runs
+                    database.execute("DELETE FROM exec_log WHERE started_at < now() - make_interval(days => %s)", (Config.exec_audit_days,))
             except Exception:
                 print(format_exc(), flush=True)
 

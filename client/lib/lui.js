@@ -1,7 +1,3 @@
-/**
- * __ui - small shared UI toolkit: icons (SVG sprite), context menus, dialogs, toasts.
- * Everything is appended to <body>, so it works the same inside a window and in a standalone page.
- */
 var __ui = (() => {
     var SPRITE = '/assets/images/icons.svg';
 
@@ -20,7 +16,6 @@ var __ui = (() => {
         return n;
     }
 
-    // ------------------------------------------------------------------------------------ menus
     var openMenus = [];
     function closeMenus() {
         openMenus.forEach(function (m) { m.remove(); });
@@ -55,7 +50,6 @@ var __ui = (() => {
                 (it.submenu ? '<span class="ui-menu__sub">' + icon('chevron-right') + '</span>' : '');
             if (it.submenu) {
                 var openSub = function () {
-                    // `submenu` may be an array, or a function returning an array / a promise of one (lazy data)
                     var r = b.getBoundingClientRect();
                     Promise.resolve(typeof it.submenu === 'function' ? it.submenu() : it.submenu).then(function (list) {
                         if (!b.isConnected) return;
@@ -91,7 +85,6 @@ var __ui = (() => {
         return menu;
     }
 
-    /** items: [{label, icon, kbd, action, disabled, danger, separator, submenu:[...]}] */
     function menu(items, x, y) {
         closeMenus();
         var clean = items.filter(Boolean);
@@ -104,11 +97,6 @@ var __ui = (() => {
         if (first) first.focus({ preventScroll: true });
     }
 
-    // ---------------------------------------------------------------------------------- dialogs
-    /**
-     * Generic modal. opts: { title, body (Node|html string), actions:[{label, value, primary, danger}],
-     *                        wide, onOpen(root, close) }  ->  Promise<value | null on Esc/overlay>
-     */
     function dialog(opts) {
         return new Promise(function (resolve) {
             var previous = document.activeElement;
@@ -148,7 +136,6 @@ var __ui = (() => {
         });
     }
 
-    /** Text input dialog -> string, or null when cancelled. validate(value) may return an error text. */
     function prompt(opts) {
         var wrap = el('div', 'ui-field');
         var id = 'p' + Math.random().toString(36).slice(2, 8);
@@ -191,7 +178,6 @@ var __ui = (() => {
         return dialog({ title: opts.title || 'Notice', body: '<p>' + esc(opts.message) + '</p>', actions: [{ label: 'OK', value: true, primary: true }] });
     }
 
-    // ------------------------------------------------------------------------------------ toasts
     var toastBox = null;
     function toast(text, kind, ms) {
         if (!toastBox || !toastBox.isConnected) { toastBox = el('div', 'ui-toasts'); toastBox.setAttribute('aria-live', 'polite'); document.body.appendChild(toastBox); }
@@ -202,16 +188,22 @@ var __ui = (() => {
         return t;
     }
 
-    /** Turns an API/gateway error into a sentence for the user. */
     var MESSAGES = {
         exists: 'An item with that name already exists.', not_found: 'Not found (it may have been moved or deleted).',
         invalid_name: 'That name is not allowed.', forbidden: 'That item is protected.', not_dir: 'That is not a folder.',
         is_dir: 'That is a folder.', too_large: 'The file is too large.', binary: 'This looks like a binary file.',
         conflict: 'The file changed on disk.', invalid_move: 'A folder cannot be moved into itself.', not_audio: 'Only audio files can be added.',
         payload_too_large: 'The file is too big to upload.', network_error: 'Cannot reach the server.', io_error: 'The server could not do that.',
-        too_many_attempts: 'Too many attempts, try again in a moment.'
+        too_many_attempts: 'Too many attempts, try again in a moment.',
+        read_only: 'That location is read-only.', reserved_name: 'That name is reserved.', busy: 'The server is busy, try again in a moment.',
+        invalid_xml: 'The shortcut file is not valid XML.', forbidden_markup: 'DOCTYPE / ENTITY declarations are not allowed.',
+        invalid_shortcut: 'That is not a valid shortcut.', invalid_open: 'The application id is not valid.', invalid_icon: 'The icon is not valid.',
+        invalid_target: 'The target must be an absolute path.', invalid_args: 'An argument is not valid.', invalid_window: 'The window size is not valid.',
+        invalid_name: 'That name is not allowed.', invalid_color: 'Colours are written like #fc82b8.', invalid_number: 'A number is out of range.',
+        invalid_appearance: 'Those appearance settings are not valid.', invalid_layout: 'That desktop layout is not valid.'
     };
     function errorText(err) {
+        if (err && err.details && typeof err.details.detail === 'string' && err.details.detail) return err.details.detail;   // the gateway's own sentence
         var code = err && (err.code || err.message);
         return MESSAGES[code] || (code ? String(code).replace(/_/g, ' ') : 'Something went wrong.');
     }

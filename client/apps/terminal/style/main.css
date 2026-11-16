@@ -1,11 +1,12 @@
 /* Terminal - scoped under .tm */
-.tm { --tm-bg: #1e1733; --tm-fg: #efe7ff; --tm-dim: #8f82b3; --tm-accent: #FC9DC9;
+.tm { --tm-bg: #1e1733; --tm-fg: #efe7ff; --tm-dim: #8f82b3; --tm-accent: #FC9DC9; --tm-font-size: 13px;
     display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; padding: 8px 10px; overflow-y: auto; cursor: text;
-    background: var(--tm-bg); color: var(--tm-fg); font: 13px/1.45 var(--font-mono); }
+    background: var(--tm-bg); color: var(--tm-fg); font: var(--tm-font-size)/1.45 var(--font-mono);
+    -webkit-user-select: text; user-select: text; }   /* output is something you copy from */
 .tm-out { white-space: pre-wrap; word-break: break-word; }
 .tm-out > div { min-height: 1.45em; }
 .tm-line { display: flex; align-items: baseline; gap: 8px; }
-.tm-prompt { flex: none; color: var(--tm-accent); white-space: pre; user-select: none; }
+.tm-prompt { flex: none; color: var(--tm-accent); white-space: pre; -webkit-user-select: none; user-select: none; }
 .tm-prompt .user { color: #b9a0ff; } .tm-prompt .dir { color: #8fd6ff; }
 .tm-input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; caret-color: var(--tm-accent); }
 .tm-input:focus-visible { box-shadow: none; }
@@ -14,3 +15,8 @@
 .tm .echo { color: var(--tm-fg); } .tm .echo .p { color: var(--tm-accent); }
 .tm::selection, .tm *::selection { background: rgba(252, 157, 201, .4); }
 .tm-host { width: 100%; height: 100%; min-height: 0; }
+/* a program is running: the prompt waits, a small spinner shows it, Ctrl+C stops it */
+.tm.is-busy .tm-prompt { opacity: .45; }
+.tm-spin { display: inline-block; width: 10px; height: 10px; margin-left: 6px; border-radius: 50%; border: 2px solid var(--tm-dim); border-top-color: var(--tm-accent); animation: tm-spin .8s linear infinite; vertical-align: -1px; }
+@keyframes tm-spin { to { transform: rotate(360deg); } }
+.tm-busy-note { color: var(--tm-dim); }

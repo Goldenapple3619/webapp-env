@@ -18,6 +18,8 @@ networks:
   edge:
   backend:
     internal: true
+  sandbox:
+    internal: true
 
 volumes:
   db-data:
@@ -87,12 +89,13 @@ services:
     <<: *hardening
     read_only: true
     tmpfs: [/tmp]
-    networks: [edge, backend]
+    networks: [edge, backend, sandbox]
     stop_grace_period: 15s
     depends_on:
       db: { condition: service_healthy }
       api: { condition: service_healthy }
       init-system: { condition: service_completed_successfully }
+      runner: { condition: service_healthy }
     volumes:
       - ${SYSTEM_DIR:-./system}:/mnt/system
     environment:
@@ -101,20 +104,48 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS:-}
+      RUNNER_URL: http://runner:8002
+      RUNNER_TOKEN: ${RUNNER_TOKEN}
     logging: *logging
 
   web:
     build: ./client
     restart: unless-stopped
     <<: *hardening
-    networks: [edge]
+    networks:
+      edge:
     depends_on:
       api: { condition: service_healthy }
       socket: { condition: service_healthy }
-    ports:
-      - "${WEBSERVER_PORT:-80}:8080"
     environment:
       CSP_CONNECT_SRC: "${CSP_CONNECT_SRC:-'self' ws: wss:}"
       CSP_REMOTE_SRC: "${CSP_REMOTE_SRC:-}"
       DNS_RESOLVER: "${DNS_RESOLVER:-127.0.0.11}"
     logging: *logging
+
+  runner:
+    build: ./runner
+    restart: unless-stopped
+    user: "10001:10001"
+    environment:
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?set a random secret of 32+ characters}
+      USERS_ROOT: /mnt/system/users
+      RUNNER_MAX_JOBS: "4"
+      RUNNER_PER_USER: "2"
+      # RUNNER_MOUNT_PROC: "0"
+    volumes:
+      - ${SYSTEM_DIR:-./system}:/mnt/system
+    networks: [sandbox]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /run/runner:uid=10001,gid=10001,mode=0755,size=1m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=unconfined
+      - apparmor=unconfined
+      - systempaths=unconfined
+    pids_limit: 768
+    mem_limit: 4g
+    cpus: 4

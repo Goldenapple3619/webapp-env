@@ -6,7 +6,7 @@ from traceback import format_exc
 
 import psycopg2
 
-CHANNELS = ("fs_events", "session_events")
+CHANNELS = ("fs_events", "session_events", "desktop_events")
 
 
 class PgListener(threading.Thread):

@@ -1,0 +1,12 @@
+networks:
+  proxy:
+    external: true
+    name: caddy_proxy
+
+services:
+  web:
+    networks:
+      edge:
+      proxy:
+        aliases:
+          - webenv-client

@@ -1,0 +1,13 @@
+{
+  "_comment": "What the sandbox may run. 'bin' is a path INSIDE the runner image (it is bind-mounted read-only into every job). A tool whose binary is missing is simply not offered. To add one: install it in the Dockerfile, add an entry here. Limits are per job; the gateway cannot raise them.",
+  "defaults": {"wall_s": 10, "cpu_s": 8, "mem_mb": 1024, "fsize_mb": 64, "nofile": 256, "output_kb": 256, "stdin_kb": 1024},
+  "tools": [
+    {"name": "gcc",     "bin": "/usr/bin/gcc",         "description": "GNU C compiler",             "limits": {"wall_s": 30, "cpu_s": 25, "mem_mb": 1536}},
+    {"name": "cc",      "bin": "/usr/bin/cc",          "description": "C compiler (alias of gcc)",  "limits": {"wall_s": 30, "cpu_s": 25, "mem_mb": 1536}},
+    {"name": "g++",     "bin": "/usr/bin/g++",         "description": "GNU C++ compiler",           "limits": {"wall_s": 45, "cpu_s": 40, "mem_mb": 2048}},
+    {"name": "make",    "bin": "/usr/bin/make",        "description": "GNU make",                   "limits": {"wall_s": 60, "cpu_s": 50, "mem_mb": 1536}},
+    {"name": "python3", "bin": "/usr/local/bin/python3", "description": "Python interpreter",       "env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1", "PYTHONUNBUFFERED": "1"}},
+    {"name": "python",  "bin": "/usr/local/bin/python3", "description": "Python interpreter (alias)", "env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1", "PYTHONUNBUFFERED": "1"}},
+    {"name": "bash",    "bin": "/usr/bin/bash",        "description": "GNU bash (real shell, with if/for/functions; your files are under /work)"}
+  ]
+}

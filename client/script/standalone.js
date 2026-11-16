@@ -3,6 +3,12 @@
 
     document.onloaded = function () {
         var apps = __apps.getInstance();
+        if (window.__theme) {
+            apps.list().then(function (list) {
+                __theme.configure({ registry: list, fileUrl: function (p) { return document.auth.fileUrl(p); }, handle: function () { return document.wsscon.app('desktop'); } });
+                return __theme.load();
+            }).catch(function () {});
+        }
         apps.find(document.body.dataset.app).then(function (app) {
             var root = document.getElementById('app');
             var host = {

@@ -1,7 +1,3 @@
-/**
- * Music player. The audio engine (queue, shuffle, repeat, seek, volume) lives in createEngine();
- * the rest is UI around it plus the "music" app of the gateway (playlists in Postgres, library scan).
- */
 (function () {
     var auth = __auth.getInstance();
     var DIR = '/apps/musicPlayer/';
@@ -18,14 +14,14 @@
     }
     function basename(p) { return p.slice(p.lastIndexOf('/') + 1).replace(/\.[^.]+$/, ''); }
 
-    // ===================================================================================== engine
+    document.createMusicEngine = createEngine;      // exposed so the queue / error / repeat logic can be tested without a browser audio stack
     function createEngine(onChange) {
         var audio = new Audio();
         audio.preload = 'metadata';
         var queue = [], index = -1, order = [], shuffle = false, repeat = 'off';   // repeat: off | all | one
-        var retried = false;
+        var retried = false, failures = 0;   // failures: tracks in a row that could not play (stops the skip-on-error chain)
 
-        function buildOrder(keepCurrent) {
+        function buildOrder(keepCurrent) {   // (also called when "repeat all" wraps around: it must NOT reset the failure streak)
             order = queue.map(function (_, i) { return i; });
             if (shuffle) {
                 for (var i = order.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = order[i]; order[i] = order[j]; order[j] = t; }
@@ -48,6 +44,7 @@
             if (repeat === 'one') { audio.currentTime = 0; audio.play(); return; }
             api.next(true);
         });
+        audio.addEventListener('playing', function () { failures = 0; });
         ['play', 'pause', 'playing', 'waiting'].forEach(function (e) { audio.addEventListener(e, function () { emit('state'); }); });
         audio.addEventListener('timeupdate', function () { emit('time'); });
         audio.addEventListener('loadedmetadata', function () { emit('time'); });
@@ -64,12 +61,16 @@
                 return;
             }
             emit('error');
-            if (queue.length > 1) api.next(true);
+            // skip to the next song - but only until every song of the queue has failed once in a row; with "repeat all" and a dead
+            // connection this used to loop through the queue forever, hammering the server
+            failures++;
+            if (queue.length > 1 && failures < queue.length) api.next(true);
         });
 
         var api = {
             audio: audio,
             setQueue: function (tracks, start, autoplay, label) {
+                failures = 0;
                 queue = tracks.filter(function (t) { return !t.missing; });
                 api.label = label || '';
                 buildOrder(false);
@@ -80,7 +81,7 @@
             },
             current: function () { return queue[index] || null; },
             queue: function () { return queue; },
-            playIndex: function (i) { load(i, true); },
+            playIndex: function (i) { failures = 0; load(i, true); },   // an explicit choice starts a fresh streak
             toggle: function () { if (index < 0) return; audio.paused ? audio.play().catch(function () { }) : audio.pause(); },
             next: function (auto) {
                 if (!queue.length) return;
@@ -107,7 +108,6 @@
         return api;
     }
 
-    // ======================================================================================= app
     document.setupApp = document.setupApp || {};
     document.setupApp.musicPlayer = function (parent, standalone, UIs, onConnect, options) {
         options = options || {};
@@ -127,7 +127,6 @@
         var track = function (p) { return { name: basename(p), path: p }; };
         var fromSong = function (s) { return { name: s.name, path: s.endpoint, cover: s.cover, missing: s.missing, id: s.id }; };
 
-        // ------------------------------------------------------------------------------ engine + UI
         var engine = createEngine(function (what) {
             if (what === 'time') return paintTime();
             paintAll();
@@ -176,7 +175,12 @@
 
         // seek, volume, buttons
         var seekEl = $('#mp-seek');
-        seekEl.addEventListener('pointerdown', function () { seeking = true; });
+        seekEl.addEventListener('pointerdown', function () {
+            seeking = true;
+            // 'change' does not fire when the thumb is pressed and released without moving: that left `seeking` true for good and froze the bar
+            var release = function () { seeking = false; document.removeEventListener('pointerup', release); document.removeEventListener('pointercancel', release); };
+            document.addEventListener('pointerup', release); document.addEventListener('pointercancel', release);
+        });
         seekEl.addEventListener('input', function () { setFill(seekEl); $('#mp-cur').textContent = fmtTime((seekEl.value / 1000) * (engine.audio.duration || 0)); });
         seekEl.addEventListener('change', function () { engine.seekRatio(seekEl.value / 1000); seeking = false; });
         var volEl = $('#mp-volume');
@@ -197,7 +201,6 @@
             else if (e.key === 'ArrowLeft' && e.altKey) engine.prev();
         });
 
-        // OS media keys / lock screen / Bluetooth headset buttons
         function updateMediaSession() {
             if (!('mediaSession' in navigator)) return;
             var t = engine.current();
@@ -213,7 +216,6 @@
             set('seekto', function (d) { engine.audio.currentTime = d.seekTime; });
         }
 
-        // ------------------------------------------------------------------------ playlists + library
         function loadPlaylists() { return handle.fetch('playlists').then(function (r) { playlists = r.content; paintList(); }, fail); }
         function loadLibrary() { return handle.fetch('library').then(function (r) { library = r.content; libraryStale = false; if (r.truncated) ui.toast('Library truncated to the first files.'); paintList(); }, fail); }
 
@@ -235,7 +237,8 @@
         // "play this file": inside the library if we know it, otherwise as a one-song queue
         function handleIntent(args) {
             if (!args) return Promise.resolve();
-            if (args.queue && args.queue.length) { playTracks(args.queue.map(track), 0, 'Queue', 'adhoc'); return Promise.resolve(); }
+            var queue = [].concat(args.queue || []).filter(Boolean);   // one <arg name="queue"> arrives as a string, several as a list
+            if (queue.length) { playTracks(queue.map(track), 0, 'Queue', 'adhoc'); return Promise.resolve(); }
             if (args.play) {
                 return (library ? Promise.resolve() : loadLibrary()).then(function () {
                     var folder = args.play.slice(0, args.play.lastIndexOf('/')) || '/';
@@ -248,7 +251,6 @@
             return Promise.resolve();
         }
 
-        // ---------------------------------------------------------------------------------- list UI
         var listEl = $('#mp-list');
 
         function currentPath() { var t = engine.current(); return t && t.path; }
@@ -335,7 +337,6 @@
             return row;
         }
 
-        // --------------------------------------------------------------------------- list actions
         function playPlaylist(p, start) {
             var tracks = p.songs.map(fromSong);
             // `start` indexes the visible list; engine drops missing songs, so map it
@@ -391,7 +392,6 @@
             });
         }
 
-        // ------------------------------------------------------------------------- library panel
         var libEl = $('#mp-library');
         function showLibrary(show) {
             libEl.hidden = !show;

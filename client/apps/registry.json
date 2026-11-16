@@ -1,6 +1,32 @@
 {
     "apps": [
         {
+            "id": "browser",
+            "name": "Browser",
+            "title": "Browser",
+            "icon": "folder",
+            "dir": "/apps/browser/",
+            "setup": "browser",
+            "size": [
+                800, 600
+            ],
+            "handles": {
+                "ext": [
+                    "html"
+                ]
+            },
+            "minSize": [
+                360,
+                260
+            ],
+            "args": [
+                {
+                    "name": "path",
+                    "help": "file to open"
+                }
+            ]
+        },
+        {
             "id": "explorer",
             "name": "Explorer",
             "title": "Explorer",
@@ -13,6 +39,53 @@
             ],
             "handles": {
                 "folder": true
+            },
+            "minSize": [
+                360,
+                260
+            ],
+            "args": [
+                {
+                    "name": "path",
+                    "help": "folder to show"
+                }
+            ],
+            "theme": {
+                "root": ".xp",
+                "vars": [
+                    {
+                        "key": "--xp-bg",
+                        "label": "Background",
+                        "type": "color",
+                        "inherit": "--win-body-background"
+                    },
+                    {
+                        "key": "--xp-accent",
+                        "label": "Selection colour",
+                        "type": "color",
+                        "inherit": "--accent"
+                    },
+                    {
+                        "key": "--xp-item",
+                        "label": "Item width",
+                        "type": "number",
+                        "unit": "px",
+                        "min": 70,
+                        "max": 160,
+                        "step": 1,
+                        "default": 92
+                    },
+                    {
+                        "key": "--xp-icon",
+                        "label": "Icon size",
+                        "type": "number",
+                        "unit": "px",
+                        "min": 32,
+                        "max": 96,
+                        "step": 1,
+                        "default": 56
+                    }
+                ]
             }
         },
         {
@@ -36,6 +109,37 @@
                     "m4a",
                     "aac",
                     "opus"
+                ]
+            },
+            "minSize": [
+                320,
+                300
+            ],
+            "args": [
+                {
+                    "name": "play",
+                    "help": "a music file to play (its folder becomes the queue)"
+                },
+                {
+                    "name": "queue",
+                    "help": "songs to play, in order (add the argument once per song)"
+                }
+            ],
+            "theme": {
+                "root": ".mp",
+                "vars": [
+                    {
+                        "key": "--mp-bg",
+                        "label": "Background tint",
+                        "type": "color",
+                        "inherit": "--bg-secondary"
+                    },
+                    {
+                        "key": "--mp-accent",
+                        "label": "Accent",
+                        "type": "color",
+                        "inherit": "--accent"
+                    }
                 ]
             }
         },
@@ -91,6 +195,75 @@
                     "gitignore",
                     "lst"
                 ]
+            },
+            "minSize": [
+                480,
+                320
+            ],
+            "args": [
+                {
+                    "name": "path",
+                    "help": "file or folder to open"
+                },
+                {
+                    "name": "line",
+                    "help": "line to jump to"
+                },
+                {
+                    "name": "col",
+                    "help": "column to jump to"
+                }
+            ],
+            "theme": {
+                "root": ".ce",
+                "vars": [
+                    {
+                        "key": "--ce-bg",
+                        "label": "Editor background",
+                        "type": "color",
+                        "default": "#1f1a24"
+                    },
+                    {
+                        "key": "--ce-bg-2",
+                        "label": "Side panels",
+                        "type": "color",
+                        "default": "#28212f"
+                    },
+                    {
+                        "key": "--ce-fg",
+                        "label": "Text",
+                        "type": "color",
+                        "default": "#ece6f2"
+                    },
+                    {
+                        "key": "--ce-accent",
+                        "label": "Accent",
+                        "type": "color",
+                        "default": "#ff6b8a"
+                    },
+                    {
+                        "key": "--ce-bar-a",
+                        "label": "Menu bar (top)",
+                        "type": "color",
+                        "default": "#d9475f"
+                    },
+                    {
+                        "key": "--ce-bar-b",
+                        "label": "Menu bar (bottom)",
+                        "type": "color",
+                        "default": "#a52a43"
+                    },
+                    {
+                        "key": "--ce-font-size",
+                        "label": "Font size",
+                        "type": "number",
+                        "unit": "px",
+                        "min": 10,
+                        "max": 24,
+                        "step": 1,
+                        "default": 13
+                    }
+                ]
             }
         },
         {
@@ -103,7 +276,60 @@
             "size": [
                 760,
                 480
-            ]
+            ],
+            "minSize": [
+                360,
+                220
+            ],
+            "args": [
+                {
+                    "name": "run",
+                    "help": "a command to run when it opens"
+                },
+                {
+                    "name": "cwd",
+                    "help": "folder to start in"
+                }
+            ],
+            "theme": {
+                "root": ".tm",
+                "vars": [
+                    {
+                        "key": "--tm-bg",
+                        "label": "Background",
+                        "type": "color",
+                        "default": "#1e1733"
+                    },
+                    {
+                        "key": "--tm-fg",
+                        "label": "Text",
+                        "type": "color",
+                        "default": "#efe7ff"
+                    },
+                    {
+                        "key": "--tm-dim",
+                        "label": "Dim text",
+                        "type": "color",
+                        "default": "#8f82b3"
+                    },
+                    {
+                        "key": "--tm-accent",
+                        "label": "Prompt & cursor",
+                        "type": "color",
+                        "default": "#fc9dc9"
+                    },
+                    {
+                        "key": "--tm-font-size",
+                        "label": "Font size",
+                        "type": "number",
+                        "unit": "px",
+                        "min": 10,
+                        "max": 24,
+                        "step": 1,
+                        "default": 13
+                    }
+                ]
+            }
         },
         {
             "id": "viewer",
@@ -131,7 +357,11 @@
                     "ogv",
                     "pdf"
                 ]
-            }
+            },
+            "minSize": [
+                320,
+                240
+            ]
         }
     ]
 }

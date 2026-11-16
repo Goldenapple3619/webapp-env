@@ -2,6 +2,7 @@ import ast
 import json
 import os
 
+from src.common.userfs import is_virtual
 from src import AppError, FsApp
 
 MAX_STATE = 64 * 1024
@@ -13,7 +14,10 @@ class CodeApp(FsApp):
 
     def fetch(self, fetch_type, **kwargs):
         if fetch_type == "read":
-            return {"type": "read", **self.fs.read_text(kwargs.get("path"))}
+            path = kwargs.get("path")
+            if isinstance(path, str) and is_virtual(path):  # /virtual/sh etc: a read-only description of the tool
+                return {"type": "read", **self.vfs.read_text(path)}
+            return {"type": "read", **self.fs.read_text(path)}
         if fetch_type == "lint":
             return {"type": "lint", "problems": self.lint(kwargs.get("language"), kwargs.get("content", ""))}
         if fetch_type == "state":

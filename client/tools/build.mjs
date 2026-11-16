@@ -2,14 +2,20 @@
 
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { transform } from "esbuild";
 
 const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const out = path.resolve(process.argv[process.argv.indexOf("--out") + 1] || "dist");
-const SKIP = new Set(["node_modules", "dist", "nginx", "build.mjs", "optimize.mjs", "package.json", "package-lock.json", "Dockerfile", ".dockerignore"]);
+// `--out <dir>` (default: dist). NOTE: indexOf() is -1 when the flag is absent, and argv[-1 + 1] is argv[0] - the node binary.
+// The first version of this line therefore resolved to the node executable and then deleted it. Parse explicitly, and refuse
+// to wipe anything that does not look like an output folder of this build.
+const flagAt = process.argv.indexOf("--out");
+const flagValue = flagAt >= 0 ? process.argv[flagAt + 1] : undefined;
+if (flagAt >= 0 && (!flagValue || flagValue.startsWith("-"))) { console.error("[build] --out needs a folder name"); process.exit(2); }
+const out = path.resolve(flagValue || "dist");
+const SKIP = new Set(["node_modules", "dist", "nginx", "tests", "tools", "build.mjs", "optimize.mjs", "package.json", "package-lock.json", "Dockerfile", ".dockerignore"]);   // tests/ and tools/ are development files: never ship them
 
 const FINGERPRINT = /\.(js|css|json|svg|png|webp|jpg|ico)$|\/UI\/[^/]+\.html$/;
 const COMPRESS = /\.(js|css|json|svg|html)$/;
@@ -25,6 +31,16 @@ async function walk(dir, base = "") {
     return files;
 }
 
+async function assertSafeToWipe(dir) {
+    const protectedPaths = [path.parse(dir).root, SRC, process.execPath, process.env.HOME].filter(Boolean).map((x) => path.resolve(x));
+    if (protectedPaths.includes(dir) || SRC.startsWith(dir + path.sep)) throw new Error(`refusing to wipe ${dir}`);
+    let info;
+    try { info = await stat(dir); } catch { return; }                       // does not exist yet: nothing to wipe
+    if (!info.isDirectory()) throw new Error(`${dir} exists and is not a folder`);
+    const names = await readdir(dir);
+    if (names.length && !names.includes("v.js")) throw new Error(`${dir} is not empty and does not look like a previous build output (no v.js): refusing to delete it`);
+}
+try { await assertSafeToWipe(out); } catch (e) { console.error(`[build] ${e.message}`); process.exit(2); }
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 

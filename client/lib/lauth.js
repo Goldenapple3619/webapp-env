@@ -1,29 +1,14 @@
-/**
- * __auth - the client side of the session system.
- *
- *   access token   short lived (15 min), kept ONLY in memory, sent as "Authorization: Bearer"
- *   refresh token  httpOnly cookie scoped to /api/auth - JavaScript can never read it
- *
- * After a page load there is no token in memory, so the first thing a protected page does is
- * `restore()`: the browser sends the refresh cookie, the API rotates it and answers with a fresh
- * access token. Several tabs share one login: refreshes are serialised with the Web Locks API and
- * the new token is handed to the other tabs through a BroadcastChannel, so tabs never race the
- * server's rotation (which would look like token theft and end the session).
- */
 var __auth = (() => {
     var instance = null;
 
     function init() {
-        var HINT = 'gz_session_hint'; // "I have logged in on this browser": not a secret, saves a pointless 401
+        var HINT = 'gz_session_hint';
         var token = null, expiresAt = 0, user = null, sessionId = null;
         var timer = null, inflight = null;
-        var version = 0;       // bumped whenever a token is adopted (here or via another tab)
+        var version = 0;
         var listeners = [];
         var channel = ('BroadcastChannel' in window) ? new BroadcastChannel('webapp-env-auth') : null;
 
-        // ---- where the API lives ------------------------------------------------------------------
-        // Default: the origin that served this page (nginx proxies /api). A different server can be
-        // typed on the login page (kept in localStorage 'host', as before).
         function base() {
             var h = (localStorage.getItem('host') || '').trim();
             if (!h) return '';
@@ -38,7 +23,6 @@ var __auth = (() => {
             return apiBase() + '/my' + (p === '/' ? '' : p) + (opts && opts.download ? '?download' : opts && opts.zip ? '?zip' : '');
         }
 
-        // ---- state ------------------------------------------------------------------------------------
         function emit(type) {
             listeners.slice().forEach(function (cb) { try { cb(type, state()); } catch (e) { console.error(e); } });
         }
@@ -78,7 +62,6 @@ var __auth = (() => {
             timer = setTimeout(function () { refresh().catch(function () { /* retried on demand */ }); }, wait);
         }
 
-        // Timers are throttled in background tabs and stop while a laptop sleeps: re-check on wake.
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'visible' && token && expiresAt - Date.now() < 45000) refresh().catch(function () {});
         });
@@ -86,7 +69,6 @@ var __auth = (() => {
             if (token && expiresAt - Date.now() < 45000) refresh().catch(function () {});
         });
 
-        // ---- raw http -----------------------------------------------------------------------------------
         function send(path, opts) {
             var headers = Object.assign({}, opts.headers || {});
             var body;
@@ -113,15 +95,10 @@ var __auth = (() => {
             });
         }
 
-        // ---- session lifecycle --------------------------------------------------------------------------
-        /** Trades the refresh cookie for a new access token. Serialised across tabs. */
         function refresh() {
             if (inflight) return inflight;
             var seen = version;
             var run = function () {
-                // Waiting for the lock, another tab may have refreshed and handed us its token (version bumped):
-                // then there is nothing left to do. (Comparing the remaining lifetime instead is wrong: the
-                // proactive timer fires while a minute is still left and would wrongly skip its own refresh.)
                 if (version !== seen && token && expiresAt - Date.now() > 20000) return Promise.resolve(token);
                 return send('/auth/refresh', { method: 'POST' }).then(function (body) {
                     adopt(body);
@@ -136,16 +113,14 @@ var __auth = (() => {
             return inflight;
         }
 
-        /** A valid access token, refreshing first if needed. Rejects with status 401 when logged out. */
         function ensure() {
             if (token && expiresAt - Date.now() > 20000) return Promise.resolve(token);
             return refresh();
         }
 
-        /** For protected pages: is there a usable session? (restores it from the refresh cookie) */
         function restore() {
             return ensure().then(function () { return true; }, function (err) {
-                if (err.network) throw err; // server unreachable is not the same as "logged out"
+                if (err.network) throw err;
                 return false;
             });
         }
@@ -159,10 +134,9 @@ var __auth = (() => {
             return send('/auth/register', { method: 'POST', json: { username: username, password: password } }).then(function (b) { adopt(b); return b; });
         }
         function logout() {
-            return send('/auth/logout', { method: 'POST', bearer: token }).catch(function () { /* best effort */ }).then(function () { clear('logout'); });
+            return send('/auth/logout', { method: 'POST', bearer: token }).catch(function () {}).then(function () { clear('logout'); });
         }
 
-        /** Authenticated JSON request; one transparent refresh+retry on 401. */
         function request(path, opts) {
             opts = opts || {};
             var attempt = function (retry) {
@@ -170,7 +144,7 @@ var __auth = (() => {
                     return send(path, Object.assign({}, opts, { bearer: t }));
                 }).catch(function (err) {
                     if (err.status === 401 && retry) {
-                        expiresAt = 0; // force a refresh
+                        expiresAt = 0;
                         return attempt(false);
                     }
                     throw err;
@@ -185,7 +159,6 @@ var __auth = (() => {
             return cachedConfig;
         }
 
-        /** PUT a File/Blob to /api/my/<path>. XHR (not fetch) because it reports upload progress. */
         function upload(path, file, opts) {
             opts = opts || {};
             return ensure().then(function (t) {

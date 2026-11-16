@@ -1,7 +1,22 @@
 {
-    "styles": ["/style/common.css", "/style/window.css"],
-    "UIs": ["UI/main.html"],
-    "scripts": ["script/settings.js", "script/main.js"],
-    "images": ["/assets/images/default_folder.png", "/assets/images/default_file.png"],
-    "JSONs": ["/apps/registry.json"]
+    "styles": [
+        "/style/common.css",
+        "/style/window.css"
+    ],
+    "UIs": [
+        "UI/main.html"
+    ],
+    "scripts": [
+        "script/settings.js",
+        "script/icons.js",
+        "script/appearance.js",
+        "script/main.js"
+    ],
+    "images": [
+        "/assets/images/default_folder.png",
+        "/assets/images/default_file.png"
+    ],
+    "JSONs": [
+        "/apps/registry.json"
+    ]
 }
